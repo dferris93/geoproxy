@@ -49,7 +49,6 @@ func (c *CheckIPs) CheckSubnets(subnets []string, clientAddr string) bool {
 			continue
 		}	
 		if subnet.Contains(net.ParseIP(clientAddr)) {
-			fmt.Println("subnet contains ip: ", ip)
 			return true	
 		}
 	}

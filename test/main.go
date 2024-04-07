@@ -84,7 +84,7 @@ func main() {
 			}
 
 			// Print output
-			fmt.Printf("Output from %s:\n%s\n", sshTuple, string(output))
+			fmt.Printf("%s\n", string(output))
 		}()
 	}
 	fmt.Printf("Established %d SSH connections\n", *numConnections)
