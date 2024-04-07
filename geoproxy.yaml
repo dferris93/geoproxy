@@ -1,0 +1,17 @@
+servers:
+  - listenIP: "0.0.0.0"
+    listenPort: "3333"
+    backendIP: "192.168.1.1"
+    backendPort: "22"
+    allowedCountries:
+      - "US"
+    allowedRegions:
+      - "CO"
+    alwaysAllowed: ["<ip to allow>"]
+    alwaysDenied: ["<ip to deny>"]
+  - listenIP: "0.0.0.0"
+    listenPort: "4443"
+    backendIP: "192.168.1.1"
+    backendPort: "443"
+    deniedCountries:
+      - "RU"
