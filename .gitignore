@@ -2,3 +2,5 @@ geoproxy.yaml
 geoproxy
 geoproxytest
 test/geoproxytest
+*/id_rsa*
+id_rsa*
