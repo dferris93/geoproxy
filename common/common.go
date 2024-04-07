@@ -48,7 +48,8 @@ func (c *CheckIPs) CheckSubnets(subnets []string, clientAddr string) bool {
 			log.Printf("Failed to parse CIDR: %v", err)
 			continue
 		}	
-		if subnet.Contains(net.ParseIP(ip)) {
+		if subnet.Contains(net.ParseIP(clientAddr)) {
+			fmt.Println("subnet contains ip: ", ip)
 			return true	
 		}
 	}

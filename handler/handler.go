@@ -21,23 +21,22 @@ type ClientHandler struct {
 	AlwaysAllowed    []string
 	AlwaysDenied     []string
 	ContinueOnError  bool
-	IptablesBlock	bool
-	IPApiClient   ipapi.IPAPI	
-	Mutex          *sync.Mutex
-	BlockIPs	   chan string
-	CheckIps     common.CheckIP
-	TransferFunc func(Connection, Connection)
-	BackendAddr	   string
-	BackendPort	   string
-	countryCode	   string
-	region		   string
-	cached		   string
-	clientConn    Connection
-	backendConn   Connection
-	accepted		bool
-	clientAddr   string
+	IptablesBlock    bool
+	IPApiClient      ipapi.IPAPI
+	Mutex            *sync.Mutex
+	BlockIPs         chan string
+	CheckIps         common.CheckIP
+	TransferFunc     func(Connection, Connection)
+	BackendAddr      string
+	BackendPort      string
+	countryCode      string
+	region           string
+	cached           string
+	clientConn       Connection
+	backendConn      Connection
+	accepted         bool
+	clientAddr       string
 }
-
 
 func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connection) {
 
@@ -74,18 +73,18 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 		}
 	}
 
-    h.countryCode, h.region, h.cached, err = h.IPApiClient.GetCountryCode(ip, h.Mutex)
-    if err != nil && !h.ContinueOnError {
-        log.Printf("ipapi connection error: %v", err)
+	h.countryCode, h.region, h.cached, err = h.IPApiClient.GetCountryCode(ip, h.Mutex)
+	if err != nil && !h.ContinueOnError {
+		log.Printf("ipapi connection error: %v", err)
 		if !h.ContinueOnError {
-        	return
+			return
 		} else {
 			log.Printf("continuing on despite error")
 			h.accepted = true
 			h.processConnection()
 			return
 		}
-    }
+	}
 
 	countryAccepted := false
 	regionAccepted := true
@@ -110,19 +109,19 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 	}
 
 	h.accepted = countryAccepted && regionAccepted
-    h.processConnection()
+	h.processConnection()
 }
 
 func (h *ClientHandler) processConnection() {
-    if h.accepted {
-		log.Printf("accepted connection from %s country: %s region: %s to %s:%s %s", 
-			h.clientAddr, 
-			h.countryCode, 
-			h.region, 
-			h.BackendAddr, 
-			h.BackendPort, 
+	if h.accepted {
+		log.Printf("accepted connection from %s country: %s region: %s to %s:%s %s",
+			h.clientAddr,
+			h.countryCode,
+			h.region,
+			h.BackendAddr,
+			h.BackendPort,
 			h.cached)
-        h.TransferFunc(h.clientConn, h.backendConn)
+		h.TransferFunc(h.clientConn, h.backendConn)
 		log.Printf("closed connection from %s country: %s region: %s to %s:%s %s",
 			h.clientAddr,
 			h.countryCode,
@@ -130,18 +129,18 @@ func (h *ClientHandler) processConnection() {
 			h.BackendAddr,
 			h.BackendPort,
 			h.cached)
-    } else {
-		log.Printf("rejected connection from %s country: %s region: %s to %s:%s %s", 
-			h.clientAddr, 
-			h.countryCode, 
-			h.region, 
-			h.BackendAddr, 
-			h.BackendPort, 
+	} else {
+		log.Printf("rejected connection from %s country: %s region: %s to %s:%s %s",
+			h.clientAddr,
+			h.countryCode,
+			h.region,
+			h.BackendAddr,
+			h.BackendPort,
 			h.cached)
 		if h.IptablesBlock {
 			h.BlockIPs <- h.clientAddr
 		}
-    }
+	}
 }
 
 func TransferData(ClientConn Connection, BackendConn Connection) {

@@ -3,6 +3,7 @@ package handler
 import (
 	"geoproxy/common"
 	"geoproxy/mocks"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -13,6 +14,7 @@ func TransferFuncMock(ClientConn Connection, BackendConn Connection) {}
 
 func TestHandler(t *testing.T) {
 	t.Run("TestAlwaysAllowedv4True", func(t *testing.T) {
+		fmt.Println("TestAlwaysAllowedv4True")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{},
 			AllowedRegions:   map[string]bool{},
@@ -36,6 +38,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestAlwaysAllowedv6True", func(t *testing.T) {
+		fmt.Println("TestAlwaysAllowedv6True")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{},
 			AllowedRegions:   map[string]bool{},
@@ -59,6 +62,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestAlwaysAllowedFalse", func(t *testing.T) {
+		fmt.Println("TestAlwaysAllowedFalse")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{},
 			AllowedRegions:   map[string]bool{},
@@ -82,6 +86,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAlwaysDeniedv4True", func(t *testing.T) {
+		fmt.Println("TestAlwaysDeniedv4True")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{},
 			AllowedRegions:   map[string]bool{},
@@ -105,6 +110,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAlwaysDeniedv6True", func(t *testing.T) {
+		fmt.Println("TestAlwaysDeniedv6True")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{},
 			AllowedRegions:   map[string]bool{},
@@ -128,6 +134,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAlwaysDeniedFalse", func(t *testing.T) {
+		fmt.Println("TestAlwaysDeniedFalse")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{},
 			AllowedRegions:   map[string]bool{},
@@ -151,6 +158,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestDeniedCountries", func(t *testing.T) {
+		fmt.Println("TestDeniedCountries")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{},
 			AllowedRegions:   map[string]bool{},
@@ -174,6 +182,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAllowedCountries", func(t *testing.T) {
+		fmt.Println("TestAllowedCountries")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{"CN": true},
 			AllowedRegions:   map[string]bool{},
@@ -197,6 +206,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestAllowedRegions", func(t *testing.T) {
+		fmt.Println("TestAllowedRegions")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{"CN": true},
 			AllowedRegions:   map[string]bool{"Beijing": true},
@@ -220,6 +230,7 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestDeniedRegions", func(t *testing.T) {
+		fmt.Println("TestDeniedRegions")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{"CN": true},
 			AllowedRegions:   map[string]bool{},
