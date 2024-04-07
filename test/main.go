@@ -12,6 +12,28 @@ import (
 	"golang.org/x/term"
 )
 
+func ParseSSHKey(keyfile string) (ssh.Signer, error) {
+	key, err := os.ReadFile(keyfile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load private key: %v", err)
+	}
+
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		fmt.Print("Enter passphrase for private key: ")
+		passPhrase, err := term.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read passphrase: %v", err)
+		}
+		signer, err = ssh.ParsePrivateKeyWithPassphrase(key, passPhrase)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse private key: %v", err)
+		}
+	}
+
+	return signer, nil
+}
+
 func main() {
 
 	user, _ := os.LookupEnv("USER")
@@ -23,18 +45,7 @@ func main() {
 
 	flag.Parse()
 
-	// Load private key
-	key, err := os.ReadFile(*keyfile)
-	if err != nil {
-		log.Fatalf("Failed to load private key: %s", err)
-	}
-
-	fmt.Print("Enter passphrase for private key: ")
-	passPhrase, err := term.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		log.Fatalf("Failed to read passphrase: %s", err)
-	}
-	signer, err := ssh.ParsePrivateKeyWithPassphrase(key, passPhrase)
+	signer, err := ParseSSHKey(*keyfile)
 	if err != nil {
 		log.Fatalf("Failed to parse private key: %s", err)
 	}
