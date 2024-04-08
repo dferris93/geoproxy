@@ -51,6 +51,7 @@ servers:
 * I wouldn't call this well tested, but it works for my personal use case.
 * I use Accept for TCP connections, so there are likely scaling limits.
 * I don't fork anything and this doesn't run as a daemon.  That can be a problem if you don't like running as root for ports under 1024.
+* I think IPv6 works ok, but I don't have IPv6 currently to test it out.
 
 # TODO
 
