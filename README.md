@@ -24,7 +24,7 @@ Usage of ./geoproxy:
         add rejected IPs to the specified iptables chain
 ```
 
-#Sample Config
+# Sample Config
 
 ```
 servers:
@@ -44,7 +44,7 @@ servers:
        - "RU"
 ```
 
-#Limitations
+# Limitations
 
 * ip-api.com heavily throttles free requests.  
 * I dont't want to pay for ip-api.com, so I don't have support for their auth tokens.
@@ -52,6 +52,6 @@ servers:
 * I use Accept for TCP connections, so there are likely scaling limits.
 * I don't fork anything and this doesn't run as a daemon.  That can be a problem if you don't like running as root for ports under 1024.
 
-#TODO
+# TODO
 
 * Proxy protocol support.
