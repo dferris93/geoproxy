@@ -19,6 +19,7 @@ func main() {
 	continueOnError := flag.Bool("continue", false, "allow connections through on ipapi errors")
 	blockIptables := flag.String("iptables", "", "add rejected IPs to the specified iptables chain")
 	iptablesAction := flag.String("action", "DROP", "iptables action to take on blocked IPs. Default is DROP.")
+	ipapiEndpoint := flag.String("ipapi", "http://ip-api.com/json/", "ipapi endpoint")
 	flag.Parse()
 
 	config, err := config.ReadConfig(*configFile)
@@ -63,7 +64,11 @@ func main() {
 			NetListener: &server.RealNetListener{},
 			Dialer:      &server.RealDialer{},
 			HandlerFactory: &server.HandlerFactory{
-				IPApiClient: 	 &ipapi.GetCountryCodeConfig{HTTPClient: &ipapi.RealHTTPClient{}},
+				IPApiClient: &ipapi.GetCountryCodeConfig{
+					HTTPClient: &ipapi.RealHTTPClient{
+						Endpoint: *ipapiEndpoint,
+					},
+				},
 				AllowedCountries: common.MakeSet(c.AllowedCountries),
 				AllowedRegions:   common.MakeSet(c.AllowedRegions),
 				DeniedCountries:  common.MakeSet(c.DeniedCountries),

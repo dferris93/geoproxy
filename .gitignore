@@ -1,6 +1,7 @@
 geoproxy.yaml
 geoproxy
 geoproxytest
-test/geoproxytest
+test/concurrency/geoproxytest
+test/fakeipapi/fakeipapi
 */id_rsa*
 id_rsa*

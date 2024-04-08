@@ -58,7 +58,7 @@ type IPAPIConfig struct {
 }
 
 func (i* IPAPIConfig) getIpAPI(ip string) (string, string, error) {
-	resp, err := i.HTTPClient.Get("http://ip-api.com/json/" + ip)
+	resp, err := i.HTTPClient.Get(ip)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get country code: %v", err)
 	}
@@ -67,9 +67,14 @@ func (i* IPAPIConfig) getIpAPI(ip string) (string, string, error) {
 	var data struct {
 		CountryCode string `json:"countryCode"`
 		Region      string `json:"region"`
+		Status      string `json:"status"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return "", "", fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	if data.Status != "success" {
+		return "--", "--", fmt.Errorf("failed to get country code for ip: %s", ip)
 	}
 	return data.CountryCode, data.Region, nil
 }

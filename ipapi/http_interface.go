@@ -8,8 +8,10 @@ type HTTPClient interface {
 	Get(url string) (*http.Response, error)
 }
 
-type RealHTTPClient struct{}
+type RealHTTPClient struct{
+	Endpoint string
+}
 
-func (r *RealHTTPClient) Get(url string) (*http.Response, error) {
-	return http.Get(url)
+func (r *RealHTTPClient) Get(ip string) (*http.Response, error) {
+	return http.Get(r.Endpoint + ip)
 }
