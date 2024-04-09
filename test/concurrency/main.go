@@ -50,36 +50,31 @@ func main() {
 		log.Fatalf("Failed to parse private key: %s", err)
 	}
 
-	// SSH configuration with key-based authentication
 	config := &ssh.ClientConfig{
 		User: *username,
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
 		Timeout: 5 * time.Second,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // WARNING: Insecure, use for testing only
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // use for testing only
 	}
 
-	// SSH server address
 	addr := *serverAddr
 	sshPort := *port
 	
 	sshTuple := fmt.Sprintf("%s:%s", addr, sshPort)
 
-	// Create SSH connections
 	wg := sync.WaitGroup{}
 	for i := 0; i < *numConnections; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// Establish SSH connection
 			conn, err := ssh.Dial("tcp", sshTuple, config)
 			if err != nil {
 				log.Fatalf("Failed to dial: %s", err)
 			}
 			defer conn.Close()
 
-			// Create session
 			session, err := conn.NewSession()
 			if err != nil {
 				log.Printf("Failed to create session: %s", err)
@@ -87,18 +82,15 @@ func main() {
 			}
 			defer session.Close()
 
-			// Run command
 			output, err := session.CombinedOutput("hostname")
 			if err != nil {
 				log.Printf("Failed to run command: %s", err)
 				return
 			}
 
-			// Print output
 			fmt.Printf("%s\n", string(output))
 		}()
 	}
 	fmt.Printf("Established %d SSH connections\n", *numConnections)
 	wg.Wait()
 }
-
