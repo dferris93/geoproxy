@@ -63,7 +63,8 @@ func main() {
 			BackendPort: c.BackendPort,
 			NetListener: &server.RealNetListener{},
 			Dialer:      &server.RealDialer{},
-			UseProxyProtocol: c.UseProxyProtocol,
+			RecvProxyProtocol: c.RecvProxyProtocol,
+			SendProxyProtocol: c.SendProxyProtocol,
 			ProxyProtocolVersion: c.ProxyProtocolVersion,
 			HandlerFactory: &server.HandlerFactory{
 				IPApiClient: &ipapi.GetCountryCodeConfig{

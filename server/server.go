@@ -64,7 +64,8 @@ type ServerConfig struct {
 	Dialer           Dialer
 	HandlerFactory   ClientHandlerFactory
 	serverError      error
-	UseProxyProtocol bool
+	RecvProxyProtocol bool
+	SendProxyProtocol bool
 	ProxyProtocolVersion int
 }
 
@@ -81,7 +82,7 @@ func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
 		return
 	}
 
-	if s.UseProxyProtocol {
+	if s.RecvProxyProtocol {
 		l = &proxyproto.Listener{Listener: l, ReadHeaderTimeout: 5 * time.Second}
 	}
 
@@ -119,7 +120,7 @@ func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
 
 		var proxyHeader *proxyproto.Header
 
-		if s.UseProxyProtocol {
+		if s.SendProxyProtocol {
 			proxyHeader = proxyproto.HeaderProxyFromAddrs(byte(s.ProxyProtocolVersion),
 				clientConn.RemoteAddr(), backendConn.RemoteAddr())
 		} else {

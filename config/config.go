@@ -20,7 +20,8 @@ type ServerConfig struct {
 	AlwaysDenied     []string `yaml:"alwaysDenied"`
 	DeniedCountries  []string `yaml:"deniedCountries"`
 	DeniedRegions    []string `yaml:"deniedRegions"`
-	UseProxyProtocol bool     `yaml:"useProxyProtocol"`
+	RecvProxyProtocol bool     `yaml:"recvProxyProtocol"`
+	SendProxyProtocol bool     `yaml:"sendProxyProtocol"`
 	ProxyProtocolVersion int  `yaml:"proxyProtocolVersion"`
 }
 
