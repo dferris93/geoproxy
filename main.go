@@ -27,6 +27,13 @@ func main() {
 		log.Fatalf("failed to read configuration file: %v", err)
 	}
 
+	log.Printf("Starting GeoProxy\n")
+	log.Printf("Configuration file: %s\n", *configFile)
+	log.Printf("Continue on error: %v\n", *continueOnError)
+	log.Printf("Iptables chain: %s\n", *blockIptables)
+	log.Printf("Iptables action: %s\n", *iptablesAction)
+	log.Printf("IPAPI endpoint: %s\n", *ipapiEndpoint)
+
 	for _, c := range config.Servers {
 		if len(c.AllowedCountries) == 0 && len(c.DeniedCountries) == 0 {
 			log.Fatalf("no countries specified for server %s:%s", c.ListenIP, c.ListenPort)
@@ -57,14 +64,14 @@ func main() {
 			c.AlwaysDenied)
 
 		s := server.ServerConfig{
-			ListenIP:    c.ListenIP,
-			ListenPort:  c.ListenPort,
-			BackendIP:   c.BackendIP,
-			BackendPort: c.BackendPort,
-			NetListener: &server.RealNetListener{},
-			Dialer:      &server.RealDialer{},
-			RecvProxyProtocol: c.RecvProxyProtocol,
-			SendProxyProtocol: c.SendProxyProtocol,
+			ListenIP:             c.ListenIP,
+			ListenPort:           c.ListenPort,
+			BackendIP:            c.BackendIP,
+			BackendPort:          c.BackendPort,
+			NetListener:          &server.RealNetListener{},
+			Dialer:               &server.RealDialer{},
+			RecvProxyProtocol:    c.RecvProxyProtocol,
+			SendProxyProtocol:    c.SendProxyProtocol,
 			ProxyProtocolVersion: c.ProxyProtocolVersion,
 			HandlerFactory: &server.HandlerFactory{
 				IPApiClient: &ipapi.GetCountryCodeConfig{
@@ -83,9 +90,9 @@ func main() {
 				Mutex:            &sync.Mutex{},
 				TransferFunc:     handler.TransferData,
 				IptablesBlock:    *iptablesAction != "",
-				BlockIPs: 	   blockips,
-				BackendIP: 	  c.BackendIP,
-				BackendPort:  c.BackendPort,
+				BlockIPs:         blockips,
+				BackendIP:        c.BackendIP,
+				BackendPort:      c.BackendPort,
 			},
 		}
 		go s.StartServer(&wg, context.Background())

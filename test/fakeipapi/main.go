@@ -62,6 +62,6 @@ func main() {
     http.HandleFunc("/json/", handleJSON)
 
     // Start the web server on port 8080
-    fmt.Println("Server is running on http://localhost:8080")
-    log.Fatal(http.ListenAndServe(":8080", nil))
+    fmt.Println("Server is running on http://localhost:8181")
+    log.Fatal(http.ListenAndServe("127.0.0.1:8181", nil))
 }

@@ -43,6 +43,7 @@ type ClientHandler struct {
 
 func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connection, proxyHeader *proxyproto.Header) {
 
+
 	h.ProxyHeader = proxyHeader
 
 	clientAddr := ClientConn.RemoteAddr().String()
@@ -82,6 +83,8 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 	if err != nil && !h.ContinueOnError {
 		log.Printf("ipapi connection error: %v", err)
 		if !h.ContinueOnError {
+			ClientConn.Close()
+			BackendConn.Close()
 			return
 		} else {
 			log.Printf("continuing on despite error")
