@@ -153,7 +153,10 @@ func TransferData(ClientConn Connection, BackendConn Connection, h *proxyproto.H
 	defer BackendConn.Close()
 	go func() {
 		if h != nil {
-			h.WriteTo(BackendConn)
+			_, err := h.WriteTo(BackendConn)
+			if err != nil {
+				log.Printf("Error writing proxy header: %v", err)
+			}
 		}
 		_, err := io.Copy(BackendConn, ClientConn)
 		if err != nil {
