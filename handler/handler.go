@@ -7,10 +7,12 @@ import (
 	"log"
 	"net"
 	"sync"
+
+	proxyproto "github.com/pires/go-proxyproto"
 )
 
 type Handler interface {
-	HandleClient(Connection, Connection)
+	HandleClient(Connection, Connection, *proxyproto.Header)
 }
 
 type ClientHandler struct {
@@ -26,7 +28,7 @@ type ClientHandler struct {
 	Mutex            *sync.Mutex
 	BlockIPs         chan string
 	CheckIps         common.CheckIP
-	TransferFunc     func(Connection, Connection)
+	TransferFunc     func(Connection, Connection, *proxyproto.Header)
 	BackendAddr      string
 	BackendPort      string
 	countryCode      string
@@ -36,9 +38,12 @@ type ClientHandler struct {
 	backendConn      Connection
 	accepted         bool
 	clientAddr       string
+	ProxyHeader 	*proxyproto.Header
 }
 
-func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connection) {
+func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connection, proxyHeader *proxyproto.Header) {
+
+	h.ProxyHeader = proxyHeader
 
 	clientAddr := ClientConn.RemoteAddr().String()
 
@@ -121,7 +126,7 @@ func (h *ClientHandler) processConnection() {
 			h.BackendAddr,
 			h.BackendPort,
 			h.cached)
-		h.TransferFunc(h.clientConn, h.backendConn)
+		h.TransferFunc(h.clientConn, h.backendConn, h.ProxyHeader)
 		log.Printf("closed connection from %s country: %s region: %s to %s:%s %s",
 			h.clientAddr,
 			h.countryCode,
@@ -143,10 +148,13 @@ func (h *ClientHandler) processConnection() {
 	}
 }
 
-func TransferData(ClientConn Connection, BackendConn Connection) {
+func TransferData(ClientConn Connection, BackendConn Connection, h *proxyproto.Header) {
 	defer ClientConn.Close()
 	defer BackendConn.Close()
 	go func() {
+		if h != nil {
+			h.WriteTo(BackendConn)
+		}
 		_, err := io.Copy(BackendConn, ClientConn)
 		if err != nil {
 			log.Printf("Error copying data from client to backend: %v", err)

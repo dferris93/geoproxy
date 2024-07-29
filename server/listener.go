@@ -12,6 +12,7 @@ type RealNetListener struct{}
 func (rnl *RealNetListener) Listen(network, address string) (net.Listener, error) {
 	return net.Listen(network, address)
 }
+
 type Listener interface {
 	Accept() (net.Conn, error)
 	Close() error
@@ -33,4 +34,3 @@ func (rl *listener) Close() error {
 func (rl *listener) Addr() net.Addr {
 	return rl.Listener.Addr()
 }
-

@@ -20,6 +20,8 @@ type ServerConfig struct {
 	AlwaysDenied     []string `yaml:"alwaysDenied"`
 	DeniedCountries  []string `yaml:"deniedCountries"`
 	DeniedRegions    []string `yaml:"deniedRegions"`
+	UseProxyProtocol bool     `yaml:"useProxyProtocol"`
+	ProxyProtocolVersion int  `yaml:"proxyProtocolVersion"`
 }
 
 func ReadConfig(path string) (*Config, error) {

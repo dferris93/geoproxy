@@ -9,6 +9,7 @@ import (
 	"log"
 	"sync"
 
+	proxyproto "github.com/pires/go-proxyproto"
 )
 
 type ClientHandlerFactory interface {
@@ -27,7 +28,7 @@ type HandlerFactory struct {
 	Mutex          *sync.Mutex
 	BlockIPs	   chan string
 	CheckIps     common.CheckIP
-	TransferFunc func(handler.Connection, handler.Connection)
+	TransferFunc func(handler.Connection, handler.Connection, *proxyproto.Header)
 	BackendIP string
 	BackendPort string
 }
@@ -49,6 +50,7 @@ func (h *HandlerFactory) NewClientHandler() handler.Handler {
 		TransferFunc:    h.TransferFunc,
 		BackendAddr: 	h.BackendIP,
 		BackendPort: 	h.BackendPort,
+		ProxyHeader:    nil,
 	}
 }
 
@@ -61,6 +63,8 @@ type ServerConfig struct {
 	Dialer           Dialer
 	HandlerFactory   ClientHandlerFactory
 	serverError      error
+	UseProxyProtocol bool
+	ProxyProtocolVersion int
 }
 
 func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
@@ -75,6 +79,11 @@ func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
 		log.Printf("failed to start tcp server on %s: %v", listenAddr, err)
 		return
 	}
+
+	if s.UseProxyProtocol {
+		l = &proxyproto.Listener{Listener: l}
+	}
+
 	listener := &listener{Listener: l}
 
 	handler := s.HandlerFactory.NewClientHandler()
@@ -107,8 +116,17 @@ func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
 			continue
 		}
 
+		var proxyHeader *proxyproto.Header
+
+		if s.UseProxyProtocol {
+			proxyHeader = proxyproto.HeaderProxyFromAddrs(byte(s.ProxyProtocolVersion),
+				clientConn.RemoteAddr(), backendConn.RemoteAddr())
+		} else {
+			proxyHeader = nil
+		}
+
 		log.Printf("connection from %s to %s:%s", clientConn.RemoteAddr(), s.ListenIP, s.ListenPort)
-		go handler.HandleClient(clientConn, backendConn)
+		go handler.HandleClient(clientConn, backendConn, proxyHeader)
 		err = checkCanceled(ctx)
 		if err != nil {
 			log.Printf("shutting down server on %s", listenAddr)

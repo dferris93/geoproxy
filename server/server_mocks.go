@@ -5,6 +5,8 @@ import (
 	"geoproxy/handler"
 	"geoproxy/mocks"
 	"net"
+
+	"github.com/pires/go-proxyproto"
 )
 
 type MockNetListener struct {
@@ -72,5 +74,5 @@ func (m *MockHandlerFactory) NewClientHandler() handler.Handler {
 
 type MockClientHandler struct {}
 
-func (m *MockClientHandler) HandleClient(ClientConn handler.Connection, BackendConn handler.Connection) {}
+func (m *MockClientHandler) HandleClient(ClientConn handler.Connection, BackendConn handler.Connection, proxyHeader *proxyproto.Header) {}
 

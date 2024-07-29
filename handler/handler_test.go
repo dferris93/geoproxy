@@ -1,16 +1,17 @@
 package handler
 
 import (
+	"fmt"
 	"geoproxy/common"
 	"geoproxy/mocks"
-	"fmt"
 	"sync"
 	"testing"
 
+	"github.com/pires/go-proxyproto"
 	"github.com/stretchr/testify/assert"
 )
 
-func TransferFuncMock(ClientConn Connection, BackendConn Connection) {}
+func TransferFuncMock(ClientConn Connection, BackendConn Connection, proxyHeader *proxyproto.Header) {}
 
 func TestHandler(t *testing.T) {
 	t.Run("TestAlwaysAllowedv4True", func(t *testing.T) {
@@ -31,10 +32,11 @@ func TestHandler(t *testing.T) {
 			TransferFunc:     TransferFuncMock,
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestAlwaysAllowedv6True", func(t *testing.T) {
@@ -58,7 +60,7 @@ func TestHandler(t *testing.T) {
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 6}
 		BackendConn := mocks.MockNetConn{IPVersion: 6}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestAlwaysAllowedFalse", func(t *testing.T) {
@@ -79,10 +81,11 @@ func TestHandler(t *testing.T) {
 			TransferFunc:     TransferFuncMock,
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAlwaysDeniedv4True", func(t *testing.T) {
@@ -103,10 +106,11 @@ func TestHandler(t *testing.T) {
 			TransferFunc:     TransferFuncMock,
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAlwaysDeniedv6True", func(t *testing.T) {
@@ -127,10 +131,11 @@ func TestHandler(t *testing.T) {
 			TransferFunc:     TransferFuncMock,
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 6}
 		BackendConn := mocks.MockNetConn{IPVersion: 6}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAlwaysDeniedFalse", func(t *testing.T) {
@@ -151,10 +156,11 @@ func TestHandler(t *testing.T) {
 			TransferFunc:     TransferFuncMock,
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestDeniedCountries", func(t *testing.T) {
@@ -175,10 +181,11 @@ func TestHandler(t *testing.T) {
 			TransferFunc:     TransferFuncMock,
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAllowedCountries", func(t *testing.T) {
@@ -199,10 +206,11 @@ func TestHandler(t *testing.T) {
 			TransferFunc:     TransferFuncMock,
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestAllowedRegions", func(t *testing.T) {
@@ -223,10 +231,11 @@ func TestHandler(t *testing.T) {
 			TransferFunc:     TransferFuncMock,
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestDeniedRegions", func(t *testing.T) {
@@ -247,10 +256,11 @@ func TestHandler(t *testing.T) {
 			TransferFunc:     TransferFuncMock,
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn)
+		h.HandleClient(&ClientConn, &BackendConn, nil)
 		assert.Equal(t, false, h.accepted)
 	})
 }
