@@ -20,6 +20,7 @@ func main() {
 	blockIptables := flag.String("iptables", "", "add rejected IPs to the specified iptables chain")
 	iptablesAction := flag.String("action", "DROP", "iptables action to take on blocked IPs. Default is DROP.")
 	ipapiEndpoint := flag.String("ipapi", "http://ip-api.com/json/", "ipapi endpoint")
+	lruSize := flag.Int("lru", 10000, "size of the IP address LRU cache")
 	flag.Parse()
 
 	config, err := config.ReadConfig(*configFile)
@@ -33,6 +34,7 @@ func main() {
 	log.Printf("Iptables chain: %s\n", *blockIptables)
 	log.Printf("Iptables action: %s\n", *iptablesAction)
 	log.Printf("IPAPI endpoint: %s\n", *ipapiEndpoint)
+	log.Printf("LRU max cache size: %d\n", *lruSize)
 
 	for _, c := range config.Servers {
 		if len(c.AllowedCountries) == 0 && len(c.DeniedCountries) == 0 {
@@ -51,6 +53,9 @@ func main() {
 		}
 		go iptablesConfig.BlockIPs(blockips, context.Background())
 	}
+
+	m := &sync.Mutex{}
+	go ipapi.LRUCachedReplies(m, *lruSize)
 
 	wg := sync.WaitGroup{}
 	for _, c := range config.Servers {
@@ -87,7 +92,7 @@ func main() {
 				AlwaysDenied:     c.AlwaysDenied,
 				ContinueOnError:  *continueOnError,
 				CheckIps:         &common.CheckIPs{},
-				Mutex:            &sync.Mutex{},
+				Mutex:            m,
 				TransferFunc:     handler.TransferData,
 				IptablesBlock:    *iptablesAction != "",
 				BlockIPs:         blockips,

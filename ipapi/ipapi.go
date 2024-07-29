@@ -3,12 +3,14 @@ package ipapi
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )	
 
 var (
 	CachedReplies = map[string]Reply{}
+	LRUOrder []string
 )
 
 type IPAPI interface{
@@ -49,6 +51,7 @@ func (g *GetCountryCodeConfig) GetCountryCode(ip string, m *sync.Mutex) (string,
 		m.Lock()
 		defer m.Unlock()
 		CachedReplies[ip] = Reply{time.Now(), countryCode, region}
+		updateLRUOrder(ip, m)
 		return countryCode, region, "-", nil
 	}
 }
@@ -77,4 +80,33 @@ func (i* IPAPIConfig) getIpAPI(ip string) (string, string, error) {
 		return "--", "--", fmt.Errorf("failed to get country code for ip: %s", ip)
 	}
 	return data.CountryCode, data.Region, nil
+}
+
+func updateLRUOrder(key string, m *sync.Mutex) {
+	for i, v := range LRUOrder {
+		if v == key {
+			m.Lock()
+			defer m.Unlock()
+			LRUOrder = append(LRUOrder[:i], LRUOrder[i+1:]...)
+			break
+		}
+	}
+	LRUOrder = append(LRUOrder, key)
+}
+
+func LRUCachedReplies(m *sync.Mutex, lruSize int) {
+	for {
+		time.Sleep(1 * time.Minute)
+		lruEntries := len(CachedReplies)
+		log.Printf("LRU cache size: %d\n", lruEntries)
+		if lruEntries > lruSize {
+			m.Lock()
+			for len(CachedReplies) > lruSize {
+				oldestKey := LRUOrder[0]
+				delete(CachedReplies, oldestKey)
+				LRUOrder = LRUOrder[1:]
+			}
+			m.Unlock()
+		}
+	}
 }
