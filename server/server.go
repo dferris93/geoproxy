@@ -8,6 +8,7 @@ import (
 	"geoproxy/ipapi"
 	"log"
 	"sync"
+	"time"
 
 	proxyproto "github.com/pires/go-proxyproto"
 )
@@ -81,7 +82,7 @@ func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
 	}
 
 	if s.UseProxyProtocol {
-		l = &proxyproto.Listener{Listener: l}
+		l = &proxyproto.Listener{Listener: l, ReadHeaderTimeout: 5 * time.Second}
 	}
 
 	listener := &listener{Listener: l}
