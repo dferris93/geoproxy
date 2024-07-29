@@ -99,8 +99,8 @@ func LRUCachedReplies(m *sync.Mutex, lruSize int) {
 	for {
 		time.Sleep(1 * time.Minute)
 		lruEntries := len(CachedReplies)
-		log.Printf("LRU cache size: %d\n", lruEntries)
 		if lruEntries > lruSize {
+			log.Printf("LRU cache size: %d\n", lruEntries)
 			m.Lock()
 			for len(CachedReplies) > lruSize {
 				oldestKey := LRUOrder[0]
