@@ -39,6 +39,7 @@ func (g *GetCountryCodeConfig) GetCountryCode(ip string, m *sync.Mutex) (string,
 			m.Lock()
 			defer m.Unlock()
 			CachedReplies[ip] = Reply{time.Now(), countryCode, region}
+			go updateLRUOrder(ip, m)
 			return countryCode, region, "-", nil
 		} else {
 			return reply.CountryCode, reply.Region, "*", nil
@@ -51,7 +52,7 @@ func (g *GetCountryCodeConfig) GetCountryCode(ip string, m *sync.Mutex) (string,
 		m.Lock()
 		defer m.Unlock()
 		CachedReplies[ip] = Reply{time.Now(), countryCode, region}
-		updateLRUOrder(ip, m)
+		go updateLRUOrder(ip, m)
 		return countryCode, region, "-", nil
 	}
 }
