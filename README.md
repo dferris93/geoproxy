@@ -32,6 +32,7 @@ Usage of ./geoproxy:
 # Sample Config
 
 ```
+apiKey: xxxxx
 servers:
   - listenIP: "0.0.0.0"
     listenPort: "22"
@@ -54,13 +55,14 @@ servers:
 # Limitations
 
 * ip-api.com heavily throttles free requests.  
-* I dont't want to pay for ip-api.com, so I don't have support for their auth tokens.
+* I don't pay for ip-api.  I added best effort support for it.  if it doesn't work, sorry in advance.
 * I wouldn't call this well tested, but it works for my personal use case.
 * I have tested proxy protocol with ipv4.
 * I use Accept for TCP connections, so there are likely scaling limits.
 * I don't fork anything and this doesn't run as a daemon.  That can be a problem if you don't like running as root for ports under 1024.
 * I think IPv6 works ok, but I don't have IPv6 currently to test it out.
 * I'm an ok Go dev, but if you know how to do something better, let me know.
+* No udp support currently.  The only UDP things I care about either need to be locked to specific IPs, or need to run wide open.
 
 # TODO
 
