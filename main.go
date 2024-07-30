@@ -19,7 +19,7 @@ func main() {
 	continueOnError := flag.Bool("continue", false, "allow connections through on ipapi errors")
 	blockIptables := flag.String("iptables", "", "add rejected IPs to the specified iptables chain")
 	iptablesAction := flag.String("action", "DROP", "iptables action to take on blocked IPs. Default is DROP.")
-	ipapiEndpoint := flag.String("ipapi", "http://ip-api.com/json/", "ipapi endpoint")
+	ipapiEndpoint := flag.String("ipapi", "http://ip-api.com/json/", "ipapi endpoint. If you have an API key, change this to https://pro.ip-api.com/json/")
 	lruSize := flag.Int("lru", 10000, "size of the IP address LRU cache")
 	flag.Parse()
 
@@ -82,6 +82,7 @@ func main() {
 				IPApiClient: &ipapi.GetCountryCodeConfig{
 					HTTPClient: &ipapi.RealHTTPClient{
 						Endpoint: *ipapiEndpoint,
+						APIKey:   config.APIKey,
 					},
 				},
 				AllowedCountries: common.MakeSet(c.AllowedCountries),

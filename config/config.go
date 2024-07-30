@@ -7,6 +7,7 @@ import (
 
 type Config struct {
 	Servers []ServerConfig `yaml:"servers"`
+	APIKey  string         `yaml:"apiKey"`
 }
 
 type ServerConfig struct {
