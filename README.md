@@ -54,8 +54,8 @@ servers:
 
 # Limitations
 
-* ip-api.com heavily throttles free requests.  
-* I don't pay for ip-api.  I added best effort support for it.  if it doesn't work, sorry in advance.
+* As of 8/2024, ip-api throttles you to 45 free requests per minute.  I cache responses, but this is only going to get you so far.
+* I don't pay for ip-api.  I added best effort support for it.  If it doesn't work, sorry in advance.
 * I wouldn't call this well tested, but it works for my personal use case.
 * I have tested proxy protocol with ipv4.
 * I use Accept for TCP connections, so there are likely scaling limits.
