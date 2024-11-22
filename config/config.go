@@ -21,9 +21,11 @@ type ServerConfig struct {
 	AlwaysDenied     []string `yaml:"alwaysDenied"`
 	DeniedCountries  []string `yaml:"deniedCountries"`
 	DeniedRegions    []string `yaml:"deniedRegions"`
-	RecvProxyProtocol bool     `yaml:"recvProxyProtocol"`
-	SendProxyProtocol bool     `yaml:"sendProxyProtocol"`
+	RecvProxyProtocol bool    `yaml:"recvProxyProtocol"`
+	SendProxyProtocol bool    `yaml:"sendProxyProtocol"`
 	ProxyProtocolVersion int  `yaml:"proxyProtocolVersion"`
+	StartTime 	  string 	`yaml:"startTime"`
+	EndTime 	  string 	`yaml:"endTime"`
 }
 
 func ReadConfig(path string) (*Config, error) {

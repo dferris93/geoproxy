@@ -6,6 +6,7 @@ import (
 	"geoproxy/mocks"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/pires/go-proxyproto"
 	"github.com/stretchr/testify/assert"
@@ -257,6 +258,130 @@ func TestHandler(t *testing.T) {
 			BackendAddr: 	 "127.0.0.1",
 			BackendPort: 	 "8080",
 			ProxyHeader: 	 nil,
+		}
+		ClientConn := mocks.MockNetConn{IPVersion: 4}
+		BackendConn := mocks.MockNetConn{IPVersion: 4}
+		h.HandleClient(&ClientConn, &BackendConn, nil)
+		assert.Equal(t, false, h.accepted)
+	})
+	t.Run("Test Start and End Time is good before midnight", func(t *testing.T) {
+		fmt.Println("TestGoodBeforeMidnight")
+		startTime, _ := time.Parse("15:04", "23:58")
+		endTime, _ := time.Parse("15:04", "01:00")
+		now, _ := time.Parse("15:04", "23:59")
+		h := ClientHandler{
+			AllowedCountries: map[string]bool{},
+			AllowedRegions:   map[string]bool{},
+			DeniedCountries:  map[string]bool{},
+			DeniedRegions:    map[string]bool{},
+			AlwaysAllowed:    []string{},
+			AlwaysDenied:     []string{},
+			ContinueOnError:  false,
+			IptablesBlock:    false,
+			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+			Mutex:            &sync.Mutex{},
+			BlockIPs:         make(chan string),
+			CheckIps:         &common.CheckIPs{},
+			TransferFunc:     TransferFuncMock,
+			BackendAddr: 	 "127.0.0.1",
+			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
+			StartTime:       startTime,
+			EndTime:         endTime,
+			Now: 		  	 now,	 
+		}
+		ClientConn := mocks.MockNetConn{IPVersion: 4}
+		BackendConn := mocks.MockNetConn{IPVersion: 4}
+		h.HandleClient(&ClientConn, &BackendConn, nil)
+		assert.Equal(t, true, h.accepted)
+	})
+	t.Run("Test Start and End Time is good past midnight", func(t *testing.T) {
+		fmt.Println("TestgoodPastMidnight")
+		startTime, _ := time.Parse("15:04", "23:59")
+		endTime, _ := time.Parse("15:04", "01:00")
+		now, _ := time.Parse("15:04", "00:01")
+		h := ClientHandler{
+			AllowedCountries: map[string]bool{},
+			AllowedRegions:   map[string]bool{},
+			DeniedCountries:  map[string]bool{},
+			DeniedRegions:    map[string]bool{},
+			AlwaysAllowed:    []string{},
+			AlwaysDenied:     []string{},
+			ContinueOnError:  false,
+			IptablesBlock:    false,
+			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+			Mutex:            &sync.Mutex{},
+			BlockIPs:         make(chan string),
+			CheckIps:         &common.CheckIPs{},
+			TransferFunc:     TransferFuncMock,
+			BackendAddr: 	 "127.0.0.1",
+			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
+			StartTime:       startTime,
+			EndTime:         endTime,
+			Now: 		  	 now,	 
+		}
+		ClientConn := mocks.MockNetConn{IPVersion: 4}
+		BackendConn := mocks.MockNetConn{IPVersion: 4}
+		h.HandleClient(&ClientConn, &BackendConn, nil)
+		assert.Equal(t, true, h.accepted)
+	})
+	t.Run("Test Start and End Time is bad before start", func(t *testing.T) {
+		fmt.Println("TestBadBeforeStart")
+		now, _ := time.Parse("15:04", "23:58")
+		startTime, _ := time.Parse("15:04", "23:59")
+		endTime, _ := time.Parse("15:04", "01:00")
+		h := ClientHandler{
+			AllowedCountries: map[string]bool{},
+			AllowedRegions:   map[string]bool{},
+			DeniedCountries:  map[string]bool{},
+			DeniedRegions:    map[string]bool{},
+			AlwaysAllowed:    []string{},
+			AlwaysDenied:     []string{},
+			ContinueOnError:  false,
+			IptablesBlock:    false,
+			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+			Mutex:            &sync.Mutex{},
+			BlockIPs:         make(chan string),
+			CheckIps:         &common.CheckIPs{},
+			TransferFunc:     TransferFuncMock,
+			BackendAddr: 	 "127.0.0.1",
+			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
+			StartTime:       startTime,
+			EndTime:         endTime,
+			Now: 		  	 now,
+		}
+		ClientConn := mocks.MockNetConn{IPVersion: 4}
+		BackendConn := mocks.MockNetConn{IPVersion: 4}
+		h.HandleClient(&ClientConn, &BackendConn, nil)
+		assert.Equal(t, false, h.accepted)
+	})
+	t.Run("Test Start and End Time is bad after end", func(t *testing.T) {
+		fmt.Println("TestBadAfterEnd")
+		now, _ := time.Parse("15:04", "01:01")
+		startTime, _ := time.Parse("15:04", "23:59")
+		endTime, _ := time.Parse("15:04", "01:00")
+		h := ClientHandler{
+			AllowedCountries: map[string]bool{},
+			AllowedRegions:   map[string]bool{},
+			DeniedCountries:  map[string]bool{},
+			DeniedRegions:    map[string]bool{},
+			AlwaysAllowed:    []string{},
+			AlwaysDenied:     []string{},
+			ContinueOnError:  false,
+			IptablesBlock:    false,
+			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+			Mutex:            &sync.Mutex{},
+			BlockIPs:         make(chan string),
+			CheckIps:         &common.CheckIPs{},
+			TransferFunc:     TransferFuncMock,
+			BackendAddr: 	 "127.0.0.1",
+			BackendPort: 	 "8080",
+			ProxyHeader: 	 nil,
+			StartTime:       startTime,
+			EndTime:         endTime,
+			Now: 		  	 now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}

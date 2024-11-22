@@ -32,6 +32,8 @@ type HandlerFactory struct {
 	TransferFunc func(handler.Connection, handler.Connection, *proxyproto.Header)
 	BackendIP string
 	BackendPort string
+	StartTime time.Time
+	EndTime time.Time
 }
 
 func (h *HandlerFactory) NewClientHandler() handler.Handler {
@@ -52,6 +54,8 @@ func (h *HandlerFactory) NewClientHandler() handler.Handler {
 		BackendAddr: 	h.BackendIP,
 		BackendPort: 	h.BackendPort,
 		ProxyHeader:    nil,
+		StartTime:      h.StartTime,
+		EndTime:        h.EndTime,
 	}
 }
 

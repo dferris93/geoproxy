@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 type CheckIP interface {
@@ -68,4 +69,14 @@ func SubtractSet(a, b map[string]bool) map[string]bool {
 		delete(a, key)
 	}
 	return a
+}
+
+func CheckTime(startTime time.Time, endTime time.Time, now time.Time) (bool, error) {
+	current := time.Date(0, 1, 1, now.Hour(), now.Minute(), 0, 0, time.UTC)
+
+	if startTime.Before(endTime) {
+		return current.After(startTime) && current.Before(endTime), nil
+	} else {
+		return current.After(startTime) || current.Before(endTime), nil
+	}
 }

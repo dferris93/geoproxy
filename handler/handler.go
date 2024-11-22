@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	proxyproto "github.com/pires/go-proxyproto"
 )
@@ -38,11 +39,14 @@ type ClientHandler struct {
 	backendConn      Connection
 	accepted         bool
 	clientAddr       string
-	ProxyHeader 	*proxyproto.Header
+	ProxyHeader      *proxyproto.Header
+	StartTime        time.Time
+	EndTime          time.Time
+	Now              time.Time
+	DeniedReason    string
 }
 
 func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connection, proxyHeader *proxyproto.Header) {
-
 
 	h.ProxyHeader = proxyHeader
 
@@ -66,6 +70,7 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 	if len(h.AlwaysDenied) > 0 {
 		if h.CheckIps.CheckSubnets(h.AlwaysDenied, ip) {
 			h.accepted = false
+			h.DeniedReason = "Always denied"
 			h.processConnection()
 			return
 		}
@@ -74,6 +79,31 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 	if len(h.AlwaysAllowed) > 0 {
 		if h.CheckIps.CheckSubnets(h.AlwaysAllowed, ip) {
 			h.accepted = true
+			h.processConnection()
+			return
+		}
+	}
+
+	if !h.StartTime.IsZero() && !h.EndTime.IsZero() {
+		var ok bool
+		var err error
+		if h.Now.IsZero() {
+			ok, err = common.CheckTime(h.StartTime, h.EndTime, time.Now())
+		} else {
+			ok, err = common.CheckTime(h.StartTime, h.EndTime, h.Now)
+		}
+		if err != nil {
+			log.Printf("Failed to check time: %v", err)
+			return
+		}
+		if ok {
+			h.accepted = true
+			h.processConnection()
+			return
+		}
+		if !ok {
+			h.accepted = false
+			h.DeniedReason = "connection not allowed at this time"
 			h.processConnection()
 			return
 		}
@@ -117,6 +147,9 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 	}
 
 	h.accepted = countryAccepted && regionAccepted
+	if !h.accepted {
+		h.DeniedReason = "country or region denied"
+	}
 	h.processConnection()
 }
 
@@ -138,13 +171,14 @@ func (h *ClientHandler) processConnection() {
 			h.BackendPort,
 			h.cached)
 	} else {
-		log.Printf("rejected connection from %s country: %s region: %s to %s:%s %s",
+		log.Printf("rejected connection from %s country: %s region: %s to %s:%s %s reason: %s",
 			h.clientAddr,
 			h.countryCode,
 			h.region,
 			h.BackendAddr,
 			h.BackendPort,
-			h.cached)
+			h.cached,
+			h.DeniedReason)
 		if h.IptablesBlock {
 			h.BlockIPs <- h.clientAddr
 		}

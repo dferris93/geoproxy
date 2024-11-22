@@ -7,6 +7,7 @@ import (
 	"geoproxy/ipapi"
 	"geoproxy/iptables"
 	"geoproxy/server"
+	"time"
 
 	"context"
 	"flag"
@@ -36,9 +37,25 @@ func main() {
 	log.Printf("IPAPI endpoint: %s\n", *ipapiEndpoint)
 	log.Printf("LRU max cache size: %d\n", *lruSize)
 
+	var startTime time.Time
+	var endTime time.Time
+
 	for _, c := range config.Servers {
 		if len(c.AllowedCountries) == 0 && len(c.DeniedCountries) == 0 {
 			log.Fatalf("no countries specified for server %s:%s", c.ListenIP, c.ListenPort)
+		}
+		if c.StartTime != "" && c.EndTime != "" {
+			startTime, err = time.Parse("15:04", c.StartTime)
+			if err != nil {
+				log.Fatalf("failed to parse start time %s: %v", c.StartTime, err)
+			}
+			endTime, err = time.Parse("15:04", c.EndTime)
+			if err != nil {
+				log.Fatalf("failed to parse end time %s: %v", c.EndTime, err)
+			}
+			if startTime.After(endTime) {
+				log.Fatalf("start time %s is after end time %s", c.StartTime, c.EndTime)
+			}
 		}
 	}
 
@@ -99,6 +116,8 @@ func main() {
 				BlockIPs:         blockips,
 				BackendIP:        c.BackendIP,
 				BackendPort:      c.BackendPort,
+				StartTime:        startTime,
+				EndTime:          endTime,
 			},
 		}
 		go s.StartServer(&wg, context.Background())
