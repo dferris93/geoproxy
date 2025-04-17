@@ -1,8 +1,8 @@
 package config
 
 import (
-	"os"
 	"gopkg.in/yaml.v2"
+	"os"
 )
 
 type Config struct {
@@ -11,21 +11,21 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	ListenIP         string   `yaml:"listenIP"`
-	ListenPort       string   `yaml:"listenPort"`
-	BackendIP        string   `yaml:"backendIP"`
-	BackendPort      string   `yaml:"backendPort"`
-	AllowedCountries []string `yaml:"allowedCountries"`
-	AllowedRegions   []string `yaml:"allowedRegions"`
-	AlwaysAllowed 	 []string `yaml:"alwaysAllowed"`
-	AlwaysDenied     []string `yaml:"alwaysDenied"`
-	DeniedCountries  []string `yaml:"deniedCountries"`
-	DeniedRegions    []string `yaml:"deniedRegions"`
-	RecvProxyProtocol bool    `yaml:"recvProxyProtocol"`
-	SendProxyProtocol bool    `yaml:"sendProxyProtocol"`
-	ProxyProtocolVersion int  `yaml:"proxyProtocolVersion"`
-	StartTime 	  string 	`yaml:"startTime"`
-	EndTime 	  string 	`yaml:"endTime"`
+	ListenIP             string   `yaml:"listenIP"`
+	ListenPort           string   `yaml:"listenPort"`
+	BackendIP            string   `yaml:"backendIP"`
+	BackendPort          string   `yaml:"backendPort"`
+	AllowedCountries     []string `yaml:"allowedCountries"`
+	AllowedRegions       []string `yaml:"allowedRegions"`
+	AlwaysAllowed        []string `yaml:"alwaysAllowed"`
+	AlwaysDenied         []string `yaml:"alwaysDenied"`
+	DeniedCountries      []string `yaml:"deniedCountries"`
+	DeniedRegions        []string `yaml:"deniedRegions"`
+	RecvProxyProtocol    bool     `yaml:"recvProxyProtocol"`
+	SendProxyProtocol    bool     `yaml:"sendProxyProtocol"`
+	ProxyProtocolVersion int      `yaml:"proxyProtocolVersion"`
+	StartTime            string   `yaml:"startTime"`
+	EndTime              string   `yaml:"endTime"`
 }
 
 func ReadConfig(path string) (*Config, error) {

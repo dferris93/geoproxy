@@ -41,6 +41,21 @@ func main() {
 	var endTime time.Time
 
 	for _, c := range config.Servers {
+		log.Print("----------")
+		log.Printf("Server %s:%s\n", c.ListenIP, c.ListenPort)
+		log.Printf("Backend %s:%s\n", c.BackendIP, c.BackendPort)
+		log.Printf("Allowed countries: %v\n", c.AllowedCountries)
+		log.Printf("Allowed regions: %v\n", c.AllowedRegions)
+		log.Printf("Always allowed: %v\n", c.AlwaysAllowed)
+		log.Printf("Always denied: %v\n", c.AlwaysDenied)
+		log.Printf("Denied countries: %v\n", c.DeniedCountries)
+		log.Printf("Denied regions: %v\n", c.DeniedRegions)
+		log.Printf("RecvProxyProtocol: %v\n", c.RecvProxyProtocol)
+		log.Printf("SendProxyProtocol: %v\n", c.SendProxyProtocol)
+		log.Printf("ProxyProtocolVersion: %d\n", c.ProxyProtocolVersion)
+		log.Printf("Start time: %s\n", c.StartTime)
+		log.Printf("End time: %s\n", c.EndTime)
+
 		if len(c.AllowedCountries) == 0 && len(c.DeniedCountries) == 0 {
 			log.Fatalf("no countries specified for server %s:%s", c.ListenIP, c.ListenPort)
 		}
