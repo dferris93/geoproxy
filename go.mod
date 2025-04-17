@@ -3,7 +3,7 @@ module geoproxy
 go 1.22.1
 
 require (
-	github.com/pires/go-proxyproto v0.7.0
+	github.com/pires/go-proxyproto v0.8.0
 	github.com/stretchr/testify v1.9.0
 	gopkg.in/yaml.v2 v2.4.0
 )
