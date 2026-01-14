@@ -42,8 +42,11 @@ type ClientHandler struct {
 	ProxyHeader      *proxyproto.Header
 	StartTime        time.Time
 	EndTime          time.Time
+	StartDate        time.Time
+	EndDate          time.Time
+	DaysOfWeek       map[time.Weekday]bool
 	Now              time.Time
-	DeniedReason    string
+	DeniedReason     string
 }
 
 func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connection, proxyHeader *proxyproto.Header) {
@@ -84,28 +87,44 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 		}
 	}
 
-	if !h.StartTime.IsZero() && !h.EndTime.IsZero() {
-		var ok bool
-		var err error
-		if h.Now.IsZero() {
-			ok, err = common.CheckTime(h.StartTime, h.EndTime, time.Now())
-		} else {
-			ok, err = common.CheckTime(h.StartTime, h.EndTime, h.Now)
+	now := h.Now
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if (!h.StartDate.IsZero() && !h.EndDate.IsZero()) || (!h.StartTime.IsZero() && !h.EndTime.IsZero()) || len(h.DaysOfWeek) > 0 {
+		if !h.StartDate.IsZero() && !h.EndDate.IsZero() {
+			ok, err := common.CheckDateRange(h.StartDate, h.EndDate, now)
+			if err != nil {
+				log.Printf("Failed to check date range: %v", err)
+				return
+			}
+			if !ok {
+				h.accepted = false
+				h.DeniedReason = "connection not allowed on this date"
+				h.processConnection()
+				return
+			}
 		}
-		if err != nil {
-			log.Printf("Failed to check time: %v", err)
-			return
+		if len(h.DaysOfWeek) > 0 {
+			if !h.DaysOfWeek[now.Weekday()] {
+				h.accepted = false
+				h.DeniedReason = "connection not allowed on this day"
+				h.processConnection()
+				return
+			}
 		}
-		if ok {
-			h.accepted = true
-			h.processConnection()
-			return
-		}
-		if !ok {
-			h.accepted = false
-			h.DeniedReason = "connection not allowed at this time"
-			h.processConnection()
-			return
+		if !h.StartTime.IsZero() && !h.EndTime.IsZero() {
+			ok, err := common.CheckTime(h.StartTime, h.EndTime, now)
+			if err != nil {
+				log.Printf("Failed to check time: %v", err)
+				return
+			}
+			if !ok {
+				h.accepted = false
+				h.DeniedReason = "connection not allowed at this time"
+				h.processConnection()
+				return
+			}
 		}
 	}
 

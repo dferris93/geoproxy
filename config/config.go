@@ -24,6 +24,9 @@ type ServerConfig struct {
 	RecvProxyProtocol    bool     `yaml:"recvProxyProtocol"`
 	SendProxyProtocol    bool     `yaml:"sendProxyProtocol"`
 	ProxyProtocolVersion int      `yaml:"proxyProtocolVersion"`
+	DaysOfWeek           []string `yaml:"daysOfWeek"`
+	StartDate            string   `yaml:"startDate"`
+	EndDate              string   `yaml:"endDate"`
 	StartTime            string   `yaml:"startTime"`
 	EndTime              string   `yaml:"endTime"`
 }

@@ -38,6 +38,11 @@ servers:
     listenPort: "22"
     backendIP: "192.168.6.1"
     backendPort: "22"
+    daysOfWeek: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    startDate: "2024-09-01"
+    endDate: "2024-09-30"
+    startTime: "08:00"
+    endTime: "18:00"
     allowedCountries:
       - "US"
     allowedRegions:
@@ -51,6 +56,8 @@ servers:
     sendProxyProtocol: true
     recvProxyProtocol: true
 ```
+
+Note: `daysOfWeek` cannot be combined with `startDate`/`endDate` in the same server block.
 
 # Limitations
 
