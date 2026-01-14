@@ -53,7 +53,7 @@ sleep 1
 
 (
   cd "${ROOT_DIR}/test/echotest"
-  timeout 3s go run . -client -serverIP 127.0.0.1 -port 5555 -n 1
+  timeout 30s go run . -client -serverIP 127.0.0.1 -port 5555 -n 100
 ) || true
 
 echo "Integration run complete."
