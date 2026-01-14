@@ -7,6 +7,11 @@ servers:
       - "US"
     allowedRegions:
       - "CO"
+    daysOfWeek: ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    startDate: "2024-09-01"
+    endDate: "2024-09-30"
+    startTime: "08:00"
+    endTime: "18:00"
     alwaysAllowed: ["<ip to allow>"]
     alwaysDenied: ["<ip to deny>"]
   - listenIP: "0.0.0.0"

@@ -24,16 +24,19 @@ type HandlerFactory struct {
 	AlwaysAllowed    []string
 	AlwaysDenied     []string
 	ContinueOnError  bool
-	IptablesBlock	bool
-	IPApiClient    ipapi.IPAPI
-	Mutex          *sync.Mutex
-	BlockIPs	   chan string
-	CheckIps     common.CheckIP
-	TransferFunc func(handler.Connection, handler.Connection, *proxyproto.Header)
-	BackendIP string
-	BackendPort string
-	StartTime time.Time
-	EndTime time.Time
+	IptablesBlock    bool
+	IPApiClient      ipapi.IPAPI
+	Mutex            *sync.Mutex
+	BlockIPs         chan string
+	CheckIps         common.CheckIP
+	TransferFunc     func(handler.Connection, handler.Connection, *proxyproto.Header)
+	BackendIP        string
+	BackendPort      string
+	StartTime        time.Time
+	EndTime          time.Time
+	StartDate        time.Time
+	EndDate          time.Time
+	DaysOfWeek       map[time.Weekday]bool
 }
 
 func (h *HandlerFactory) NewClientHandler() handler.Handler {
@@ -44,32 +47,35 @@ func (h *HandlerFactory) NewClientHandler() handler.Handler {
 		DeniedRegions:    h.DeniedRegions,
 		AlwaysAllowed:    h.AlwaysAllowed,
 		AlwaysDenied:     h.AlwaysDenied,
-		ContinueOnError: h.ContinueOnError,
+		ContinueOnError:  h.ContinueOnError,
 		IptablesBlock:    h.IptablesBlock,
-		IPApiClient: 	  h.IPApiClient,
+		IPApiClient:      h.IPApiClient,
 		Mutex:            h.Mutex,
 		BlockIPs:         h.BlockIPs,
 		CheckIps:         h.CheckIps,
-		TransferFunc:    h.TransferFunc,
-		BackendAddr: 	h.BackendIP,
-		BackendPort: 	h.BackendPort,
-		ProxyHeader:    nil,
-		StartTime:      h.StartTime,
-		EndTime:        h.EndTime,
+		TransferFunc:     h.TransferFunc,
+		BackendAddr:      h.BackendIP,
+		BackendPort:      h.BackendPort,
+		ProxyHeader:      nil,
+		StartTime:        h.StartTime,
+		EndTime:          h.EndTime,
+		StartDate:        h.StartDate,
+		EndDate:          h.EndDate,
+		DaysOfWeek:       h.DaysOfWeek,
 	}
 }
 
 type ServerConfig struct {
-	ListenIP         string
-	ListenPort       string
-	BackendIP        string
-	BackendPort      string
-	NetListener      NetListener
-	Dialer           Dialer
-	HandlerFactory   ClientHandlerFactory
-	serverError      error
-	RecvProxyProtocol bool
-	SendProxyProtocol bool
+	ListenIP             string
+	ListenPort           string
+	BackendIP            string
+	BackendPort          string
+	NetListener          NetListener
+	Dialer               Dialer
+	HandlerFactory       ClientHandlerFactory
+	serverError          error
+	RecvProxyProtocol    bool
+	SendProxyProtocol    bool
 	ProxyProtocolVersion int
 }
 

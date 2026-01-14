@@ -29,7 +29,6 @@ func (c *CheckIPs) CheckIPType(ip string) (int, error) {
 	return 6, nil
 }
 
-
 func (c *CheckIPs) CheckSubnets(subnets []string, clientAddr string) bool {
 	for _, ip := range subnets {
 		if !strings.Contains(ip, "/") {
@@ -48,9 +47,9 @@ func (c *CheckIPs) CheckSubnets(subnets []string, clientAddr string) bool {
 		if err != nil {
 			log.Printf("Failed to parse CIDR: %v", err)
 			continue
-		}	
+		}
 		if subnet.Contains(net.ParseIP(clientAddr)) {
-			return true	
+			return true
 		}
 	}
 	return false
@@ -72,11 +71,27 @@ func SubtractSet(a, b map[string]bool) map[string]bool {
 }
 
 func CheckTime(startTime time.Time, endTime time.Time, now time.Time) (bool, error) {
-	current := time.Date(0, 1, 1, now.Hour(), now.Minute(), 0, 0, time.UTC)
+	location := now.Location()
+	current := time.Date(0, 1, 1, now.Hour(), now.Minute(), 0, 0, location)
+	start := time.Date(0, 1, 1, startTime.Hour(), startTime.Minute(), 0, 0, location)
+	end := time.Date(0, 1, 1, endTime.Hour(), endTime.Minute(), 0, 0, location)
 
-	if startTime.Before(endTime) {
-		return current.After(startTime) && current.Before(endTime), nil
+	if start.Before(end) {
+		return (current.Equal(start) || current.After(start)) && (current.Equal(end) || current.Before(end)), nil
 	} else {
-		return current.After(startTime) || current.Before(endTime), nil
+		return current.Equal(start) || current.Equal(end) || current.After(start) || current.Before(end), nil
 	}
+}
+
+func CheckDateRange(startDate time.Time, endDate time.Time, now time.Time) (bool, error) {
+	location := now.Location()
+	current := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+	start := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, location)
+	end := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, location)
+
+	if start.After(end) {
+		return false, fmt.Errorf("start date is after end date")
+	}
+
+	return (current.Equal(start) || current.After(start)) && (current.Equal(end) || current.Before(end)), nil
 }
