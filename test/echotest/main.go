@@ -61,10 +61,11 @@ func handleConnection(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func startClient(ctx context.Context, serverIP, port string, numGoroutines int, numMessages int) {
+func startClient(ctx context.Context, serverIP, port string, concurrency int, numRequests int) {
 	var wg sync.WaitGroup
+	requests := make(chan int)
 
-	for i := 0; i < numGoroutines; i++ {
+	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -78,7 +79,7 @@ func startClient(ctx context.Context, serverIP, port string, numGoroutines int, 
 			fmt.Printf("Goroutine %d connected to server at %s:%s\n", id, serverIP, port)
 
 			message := "HELLOTEST\n"
-			for j := 0; j < numMessages; j++ {
+			for range requests {
 				select {
 				case <-ctx.Done():
 					return
@@ -101,6 +102,13 @@ func startClient(ctx context.Context, serverIP, port string, numGoroutines int, 
 		}(i)
 	}
 
+	go func() {
+		for i := 0; i < numRequests; i++ {
+			requests <- i
+		}
+		close(requests)
+	}()
+
 	wg.Wait()
 }
 
@@ -109,8 +117,8 @@ func main() {
 	clientMode := flag.Bool("client", false, "Start in client mode")
 	port := flag.String("port", "8080", "Port to use")
 	serverIP := flag.String("serverIP", "localhost", "Server IP to connect to")
-	numGoroutines := flag.Int("n", 1, "Number of goroutines for the client")
-	numMessages := flag.Int("messages", 1, "Messages per goroutine")
+	numRequests := flag.Int("n", 1, "Number of client requests to send")
+	concurrency := flag.Int("c", 1, "Number of concurrent client goroutines")
 	timeout := flag.Duration("timeout", 30*time.Second, "Timeout for server/client")
 
 	flag.Parse()
@@ -122,7 +130,7 @@ func main() {
 	} else if *clientMode {
 		ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 		defer cancel()
-		startClient(ctx, *serverIP, *port, *numGoroutines, *numMessages)
+		startClient(ctx, *serverIP, *port, *concurrency, *numRequests)
 	} else {
 		fmt.Println("Please specify -server or -client mode.")
 	}
