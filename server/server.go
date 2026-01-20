@@ -77,6 +77,7 @@ type ServerConfig struct {
 	RecvProxyProtocol    bool
 	SendProxyProtocol    bool
 	ProxyProtocolVersion int
+	TrustedProxies       []string
 }
 
 func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
@@ -93,12 +94,16 @@ func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
 	}
 
 	if s.RecvProxyProtocol {
-		l = &proxyproto.Listener{Listener: l, ReadHeaderTimeout: 5 * time.Second}
+		policy, err := proxyproto.StrictWhiteListPolicy(s.TrustedProxies)
+		if err != nil {
+			s.serverError = err
+			log.Printf("failed to configure proxy protocol policy on %s: %v", listenAddr, err)
+			return
+		}
+		l = &proxyproto.Listener{Listener: l, ReadHeaderTimeout: 5 * time.Second, Policy: policy}
 	}
 
 	listener := &listener{Listener: l}
-
-	handler := s.HandlerFactory.NewClientHandler()
 
 	for {
 		clientConn, err := listener.Accept()
@@ -138,6 +143,7 @@ func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
 		}
 
 		log.Printf("connection from %s to %s:%s", clientConn.RemoteAddr(), s.ListenIP, s.ListenPort)
+		handler := s.HandlerFactory.NewClientHandler()
 		go handler.HandleClient(clientConn, backendConn, proxyHeader)
 		err = checkCanceled(ctx)
 		if err != nil {

@@ -55,9 +55,12 @@ servers:
        - "RU"
     sendProxyProtocol: true
     recvProxyProtocol: true
+    trustedProxies:
+      - "10.0.0.0/8"
 ```
 
 Note: `daysOfWeek` cannot be combined with `startDate`/`endDate` in the same server block.
+Note: `recvProxyProtocol` requires `trustedProxies` to avoid spoofed source addresses; `trustedProxies` are ignored when `recvProxyProtocol` is false.
 
 # Limitations
 

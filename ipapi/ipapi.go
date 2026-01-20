@@ -30,31 +30,25 @@ func (g *GetCountryCodeConfig) GetCountryCode(ip string, m *sync.Mutex) (string,
 	var countryCode, region string
 	var err error
 	ipAPIConfig := &IPAPIConfig{HTTPClient: g.HTTPClient}
-	if reply, ok := CachedReplies[ip]; ok {
-		if time.Since(reply.TimeStamp) >= 24*time.Hour {
-			countryCode, region, err = ipAPIConfig.getIpAPI(ip)
-			if err != nil {
-				return "", "", "", err
-			}
-			m.Lock()
-			defer m.Unlock()
-			CachedReplies[ip] = Reply{time.Now(), countryCode, region}
-			go updateLRUOrder(ip, m)
-			return countryCode, region, "-", nil
-		} else {
-			return reply.CountryCode, reply.Region, "*", nil
-		}
-	} else {
-		countryCode, region, err := ipAPIConfig.getIpAPI(ip)
-		if err != nil {
-			return "", "", "-", err
-		}
+	m.Lock()
+	reply, ok := CachedReplies[ip]
+	m.Unlock()
+	if ok && time.Since(reply.TimeStamp) < 24*time.Hour {
 		m.Lock()
-		defer m.Unlock()
-		CachedReplies[ip] = Reply{time.Now(), countryCode, region}
-		go updateLRUOrder(ip, m)
-		return countryCode, region, "-", nil
+		updateLRUOrderLocked(ip)
+		m.Unlock()
+		return reply.CountryCode, reply.Region, "*", nil
 	}
+
+	countryCode, region, err = ipAPIConfig.getIpAPI(ip)
+	if err != nil {
+		return "", "", "-", err
+	}
+	m.Lock()
+	CachedReplies[ip] = Reply{time.Now(), countryCode, region}
+	updateLRUOrderLocked(ip)
+	m.Unlock()
+	return countryCode, region, "-", nil
 }
 
 type IPAPIConfig struct {
@@ -83,11 +77,9 @@ func (i* IPAPIConfig) getIpAPI(ip string) (string, string, error) {
 	return data.CountryCode, data.Region, nil
 }
 
-func updateLRUOrder(key string, m *sync.Mutex) {
+func updateLRUOrderLocked(key string) {
 	for i, v := range LRUOrder {
 		if v == key {
-			m.Lock()
-			defer m.Unlock()
 			LRUOrder = append(LRUOrder[:i], LRUOrder[i+1:]...)
 			break
 		}
@@ -98,16 +90,19 @@ func updateLRUOrder(key string, m *sync.Mutex) {
 func LRUCachedReplies(m *sync.Mutex, lruSize int) {
 	for {
 		time.Sleep(1 * time.Minute)
+		m.Lock()
 		lruEntries := len(CachedReplies)
 		if lruEntries > lruSize {
 			log.Printf("LRU cache size: %d\n", lruEntries)
-			m.Lock()
 			for len(CachedReplies) > lruSize {
+				if len(LRUOrder) == 0 {
+					break
+				}
 				oldestKey := LRUOrder[0]
 				delete(CachedReplies, oldestKey)
 				LRUOrder = LRUOrder[1:]
 			}
-			m.Unlock()
 		}
+		m.Unlock()
 	}
 }

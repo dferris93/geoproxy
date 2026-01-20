@@ -1,8 +1,12 @@
 package config
 
 import (
-	"gopkg.in/yaml.v2"
+	"fmt"
+	"net"
 	"os"
+	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
@@ -24,6 +28,7 @@ type ServerConfig struct {
 	RecvProxyProtocol    bool     `yaml:"recvProxyProtocol"`
 	SendProxyProtocol    bool     `yaml:"sendProxyProtocol"`
 	ProxyProtocolVersion int      `yaml:"proxyProtocolVersion"`
+	TrustedProxies       []string `yaml:"trustedProxies"`
 	DaysOfWeek           []string `yaml:"daysOfWeek"`
 	StartDate            string   `yaml:"startDate"`
 	EndDate              string   `yaml:"endDate"`
@@ -43,5 +48,26 @@ func ReadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
+	for i, server := range config.Servers {
+		if err := validateTrustedProxies(server.TrustedProxies); err != nil {
+			return nil, fmt.Errorf("server %d trustedProxies: %w", i, err)
+		}
+	}
+
 	return &config, nil
+}
+
+func validateTrustedProxies(entries []string) error {
+	for _, entry := range entries {
+		if strings.Contains(entry, "/") {
+			if _, _, err := net.ParseCIDR(entry); err != nil {
+				return fmt.Errorf("invalid CIDR %q", entry)
+			}
+			continue
+		}
+		if net.ParseIP(entry) == nil {
+			return fmt.Errorf("invalid IP %q", entry)
+		}
+	}
+	return nil
 }

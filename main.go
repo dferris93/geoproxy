@@ -52,6 +52,7 @@ func main() {
 		log.Printf("RecvProxyProtocol: %v\n", c.RecvProxyProtocol)
 		log.Printf("SendProxyProtocol: %v\n", c.SendProxyProtocol)
 		log.Printf("ProxyProtocolVersion: %d\n", c.ProxyProtocolVersion)
+		log.Printf("TrustedProxies: %v\n", c.TrustedProxies)
 		log.Printf("Days of week: %v\n", c.DaysOfWeek)
 		log.Printf("Start date: %s\n", c.StartDate)
 		log.Printf("End date: %s\n", c.EndDate)
@@ -66,6 +67,9 @@ func main() {
 		}
 		if len(c.DaysOfWeek) > 0 && (c.StartDate != "" || c.EndDate != "") {
 			log.Fatalf("daysOfWeek cannot be combined with startDate/endDate for server %s:%s", c.ListenIP, c.ListenPort)
+		}
+		if c.RecvProxyProtocol && len(c.TrustedProxies) == 0 {
+			log.Fatalf("recvProxyProtocol requires trustedProxies for server %s:%s", c.ListenIP, c.ListenPort)
 		}
 		if c.StartDate != "" && c.EndDate != "" {
 			startDate, err := time.ParseInLocation("2006-01-02", c.StartDate, time.Local)
@@ -127,6 +131,14 @@ func main() {
 			c.AlwaysAllowed,
 			c.AlwaysDenied)
 
+		trustedProxies := c.TrustedProxies
+		if !c.RecvProxyProtocol {
+			if len(trustedProxies) > 0 {
+				log.Printf("trustedProxies ignored because recvProxyProtocol is false on %s:%s", c.ListenIP, c.ListenPort)
+			}
+			trustedProxies = nil
+		}
+
 		var startTime time.Time
 		var endTime time.Time
 		var startDate time.Time
@@ -165,6 +177,7 @@ func main() {
 			RecvProxyProtocol:    c.RecvProxyProtocol,
 			SendProxyProtocol:    c.SendProxyProtocol,
 			ProxyProtocolVersion: c.ProxyProtocolVersion,
+			TrustedProxies:       trustedProxies,
 			HandlerFactory: &server.HandlerFactory{
 				IPApiClient: &ipapi.GetCountryCodeConfig{
 					HTTPClient: &ipapi.RealHTTPClient{

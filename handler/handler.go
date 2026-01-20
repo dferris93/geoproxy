@@ -39,6 +39,7 @@ type ClientHandler struct {
 	backendConn      Connection
 	accepted         bool
 	clientAddr       string
+	clientIP         string
 	ProxyHeader      *proxyproto.Header
 	StartTime        time.Time
 	EndTime          time.Time
@@ -64,6 +65,7 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 	}
 
 	h.clientAddr = clientAddr
+	h.clientIP = ip
 	h.countryCode = "--"
 	h.region = "--"
 	h.cached = "--"
@@ -199,7 +201,7 @@ func (h *ClientHandler) processConnection() {
 			h.cached,
 			h.DeniedReason)
 		if h.IptablesBlock {
-			h.BlockIPs <- h.clientAddr
+			h.BlockIPs <- h.clientIP
 		}
 	}
 }
