@@ -94,13 +94,19 @@ func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
 	}
 
 	if s.RecvProxyProtocol {
-		policy, err := proxyproto.StrictWhiteListPolicy(s.TrustedProxies)
-		if err != nil {
-			s.serverError = err
-			log.Printf("failed to configure proxy protocol policy on %s: %v", listenAddr, err)
-			return
+		proxyListener := &proxyproto.Listener{Listener: l, ReadHeaderTimeout: 5 * time.Second}
+		if len(s.TrustedProxies) > 0 {
+			policy, err := proxyproto.StrictWhiteListPolicy(s.TrustedProxies)
+			if err != nil {
+				s.serverError = err
+				log.Printf("failed to configure proxy protocol policy on %s: %v", listenAddr, err)
+				return
+			}
+			proxyListener.Policy = policy
+		} else {
+			log.Printf("recvProxyProtocol enabled without trustedProxies on %s; trusting proxy headers from any source", listenAddr)
 		}
-		l = &proxyproto.Listener{Listener: l, ReadHeaderTimeout: 5 * time.Second, Policy: policy}
+		l = proxyListener
 	}
 
 	listener := &listener{Listener: l}

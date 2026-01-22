@@ -68,9 +68,6 @@ func main() {
 		if len(c.DaysOfWeek) > 0 && (c.StartDate != "" || c.EndDate != "") {
 			log.Fatalf("daysOfWeek cannot be combined with startDate/endDate for server %s:%s", c.ListenIP, c.ListenPort)
 		}
-		if c.RecvProxyProtocol && len(c.TrustedProxies) == 0 {
-			log.Fatalf("recvProxyProtocol requires trustedProxies for server %s:%s", c.ListenIP, c.ListenPort)
-		}
 		if c.StartDate != "" && c.EndDate != "" {
 			startDate, err := time.ParseInLocation("2006-01-02", c.StartDate, time.Local)
 			if err != nil {

@@ -60,7 +60,7 @@ servers:
 ```
 
 Note: `daysOfWeek` cannot be combined with `startDate`/`endDate` in the same server block.
-Note: `recvProxyProtocol` requires `trustedProxies` to avoid spoofed source addresses; `trustedProxies` are ignored when `recvProxyProtocol` is false.
+Note: when `recvProxyProtocol` is true and `trustedProxies` is empty, proxy headers are trusted from any source (use with caution); `trustedProxies` are ignored when `recvProxyProtocol` is false.
 
 # Limitations
 
