@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"geoproxy/common"
 	"geoproxy/mocks"
-	"sync"
 	"testing"
 	"time"
 
@@ -25,11 +24,8 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{"127.0.0.1"},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
+						ContinueOnError:  false,
+						IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
 			CheckIps:         &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
 			TransferFunc:     TransferFuncMock,
 			BackendAddr:      "127.0.0.1",
@@ -51,14 +47,13 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{"fe80::3c9e:f7ff:febc:caa"},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
+
+			CheckIps:     &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 6}
 		BackendConn := mocks.MockNetConn{IPVersion: 6}
@@ -75,15 +70,14 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{"127.0.0.1"},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &MockCheckIP{CheckSubnetsReturn: false, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
+
+			CheckIps:     &MockCheckIP{CheckSubnetsReturn: false, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -100,15 +94,14 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{"127.0.0.1"},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
+
+			CheckIps:     &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -125,15 +118,14 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{"fe80::3c9e:f7ff:febc:caa"},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
+
+			CheckIps:     &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 6}
 		BackendConn := mocks.MockNetConn{IPVersion: 6}
@@ -150,15 +142,14 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{"127.0.0.1"},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &MockCheckIP{CheckSubnetsReturn: false, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
+
+			CheckIps:     &MockCheckIP{CheckSubnetsReturn: false, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{}
@@ -175,15 +166,14 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -200,15 +190,14 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -225,15 +214,14 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -250,15 +238,14 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -278,18 +265,17 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
-			StartTime:        startTime,
-			EndTime:          endTime,
-			Now:              now,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
+			StartTime:    startTime,
+			EndTime:      endTime,
+			Now:          now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -309,18 +295,17 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
-			StartTime:        startTime,
-			EndTime:          endTime,
-			Now:              now,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
+			StartTime:    startTime,
+			EndTime:      endTime,
+			Now:          now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -340,18 +325,17 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
-			StartTime:        startTime,
-			EndTime:          endTime,
-			Now:              now,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
+			StartTime:    startTime,
+			EndTime:      endTime,
+			Now:          now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -371,18 +355,17 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
-			StartTime:        startTime,
-			EndTime:          endTime,
-			Now:              now,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
+			StartTime:    startTime,
+			EndTime:      endTime,
+			Now:          now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -402,18 +385,17 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
-			StartDate:        startDate,
-			EndDate:          endDate,
-			Now:              now,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
+			StartDate:    startDate,
+			EndDate:      endDate,
+			Now:          now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -433,18 +415,17 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
-			StartDate:        startDate,
-			EndDate:          endDate,
-			Now:              now,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
+			StartDate:    startDate,
+			EndDate:      endDate,
+			Now:          now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -462,17 +443,16 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
-			DaysOfWeek:       map[time.Weekday]bool{time.Monday: true},
-			Now:              now,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
+			DaysOfWeek:   map[time.Weekday]bool{time.Monday: true},
+			Now:          now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}
@@ -490,17 +470,16 @@ func TestHandler(t *testing.T) {
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 			ContinueOnError:  false,
-			IptablesBlock:    false,
-			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
-			Mutex:            &sync.Mutex{},
-			BlockIPs:         make(chan string),
-			CheckIps:         &common.CheckIPs{},
-			TransferFunc:     TransferFuncMock,
-			BackendAddr:      "127.0.0.1",
-			BackendPort:      "8080",
-			ProxyHeader:      nil,
-			DaysOfWeek:       map[time.Weekday]bool{time.Tuesday: true},
-			Now:              now,
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
+
+			CheckIps:     &common.CheckIPs{},
+			TransferFunc: TransferFuncMock,
+			BackendAddr:  "127.0.0.1",
+			BackendPort:  "8080",
+			ProxyHeader:  nil,
+			DaysOfWeek:   map[time.Weekday]bool{time.Tuesday: true},
+			Now:          now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
 		BackendConn := mocks.MockNetConn{IPVersion: 4}

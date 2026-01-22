@@ -24,10 +24,8 @@ type HandlerFactory struct {
 	AlwaysAllowed    []string
 	AlwaysDenied     []string
 	ContinueOnError  bool
-	IptablesBlock    bool
 	IPApiClient      ipapi.IPAPI
 	Mutex            *sync.Mutex
-	BlockIPs         chan string
 	CheckIps         common.CheckIP
 	TransferFunc     func(handler.Connection, handler.Connection, *proxyproto.Header)
 	BackendIP        string
@@ -48,10 +46,8 @@ func (h *HandlerFactory) NewClientHandler() handler.Handler {
 		AlwaysAllowed:    h.AlwaysAllowed,
 		AlwaysDenied:     h.AlwaysDenied,
 		ContinueOnError:  h.ContinueOnError,
-		IptablesBlock:    h.IptablesBlock,
 		IPApiClient:      h.IPApiClient,
 		Mutex:            h.Mutex,
-		BlockIPs:         h.BlockIPs,
 		CheckIps:         h.CheckIps,
 		TransferFunc:     h.TransferFunc,
 		BackendAddr:      h.BackendIP,

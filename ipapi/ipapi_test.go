@@ -5,10 +5,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,13 +31,7 @@ func responseWithBody(body string) *http.Response {
 	}
 }
 
-func resetCache() {
-	CachedReplies = map[string]Reply{}
-	LRUOrder = []string{}
-}
-
 func TestIPAPIGetIpAPISuccess(t *testing.T) {
-	resetCache()
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"US","region":"CA","status":"success"}`), nil
@@ -55,7 +49,6 @@ func TestIPAPIGetIpAPISuccess(t *testing.T) {
 }
 
 func TestIPAPIGetIpAPIDecodeError(t *testing.T) {
-	resetCache()
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return responseWithBody(`not-json`), nil
@@ -69,7 +62,6 @@ func TestIPAPIGetIpAPIDecodeError(t *testing.T) {
 }
 
 func TestIPAPIGetIpAPIStatusError(t *testing.T) {
-	resetCache()
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"--","region":"--","status":"fail"}`), nil
@@ -85,7 +77,6 @@ func TestIPAPIGetIpAPIStatusError(t *testing.T) {
 }
 
 func TestIPAPIGetIpAPIClientError(t *testing.T) {
-	resetCache()
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return nil, errors.New("boom")
@@ -99,86 +90,92 @@ func TestIPAPIGetIpAPIClientError(t *testing.T) {
 }
 
 func TestGetCountryCodeCacheHit(t *testing.T) {
-	resetCache()
-	CachedReplies["1.2.3.4"] = Reply{
-		TimeStamp:   time.Now().Add(-1 * time.Hour),
-		CountryCode: "US",
-		Region:      "CA",
-	}
+	// Initialize a new cache for this test
+	tempCache := cache.New(5*time.Minute, 10*time.Minute)
+	IPCache = tempCache // Set the global cache for this test
+	
+	tempCache.Set("1.2.3.4", Reply{CountryCode: "US", Region: "CA"}, cache.DefaultExpiration)
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"DE","region":"BE","status":"success"}`), nil
 		},
 	}
 	cfg := &GetCountryCodeConfig{HTTPClient: client}
-	mutex := &sync.Mutex{}
 
-	country, region, cacheMarker, err := cfg.GetCountryCode("1.2.3.4", mutex)
+	country, region, cacheMarker, err := cfg.GetCountryCode("1.2.3.4")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "US", country)
 	assert.Equal(t, "CA", region)
-	assert.Equal(t, "*", cacheMarker)
+	assert.Equal(t, "cached", cacheMarker)
 	assert.Equal(t, 0, client.calls)
 }
 
 func TestGetCountryCodeCacheMiss(t *testing.T) {
-	resetCache()
+	// Initialize a new cache for this test
+	tempCache := cache.New(5*time.Minute, 10*time.Minute)
+	IPCache = tempCache // Set the global cache for this test
+
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"US","region":"CA","status":"success"}`), nil
 		},
 	}
 	cfg := &GetCountryCodeConfig{HTTPClient: client}
-	mutex := &sync.Mutex{}
 
-	country, region, cacheMarker, err := cfg.GetCountryCode("1.2.3.4", mutex)
+	country, region, cacheMarker, err := cfg.GetCountryCode("1.2.3.4")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "US", country)
 	assert.Equal(t, "CA", region)
 	assert.Equal(t, "-", cacheMarker)
 	assert.Equal(t, 1, client.calls)
-	assert.Contains(t, CachedReplies, "1.2.3.4")
+	_, found := tempCache.Get("1.2.3.4")
+	assert.True(t, found)
 }
 
 func TestGetCountryCodeCacheExpired(t *testing.T) {
-	resetCache()
-	CachedReplies["1.2.3.4"] = Reply{
-		TimeStamp:   time.Now().Add(-25 * time.Hour),
-		CountryCode: "US",
-		Region:      "CA",
-	}
+	// Initialize a new cache for this test
+	tempCache := cache.New(5*time.Minute, 10*time.Minute)
+	IPCache = tempCache // Set the global cache for this test
+
+	tempCache.Set("1.2.3.4", Reply{CountryCode: "US", Region: "CA"}, 5*time.Millisecond) // Set a short-lived item
+	time.Sleep(10 * time.Millisecond)                                                   // Ensure it expires before lookup
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"DE","region":"BE","status":"success"}`), nil
 		},
 	}
 	cfg := &GetCountryCodeConfig{HTTPClient: client}
-	mutex := &sync.Mutex{}
 
-	country, region, cacheMarker, err := cfg.GetCountryCode("1.2.3.4", mutex)
+	country, region, cacheMarker, err := cfg.GetCountryCode("1.2.3.4")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "DE", country)
 	assert.Equal(t, "BE", region)
 	assert.Equal(t, "-", cacheMarker)
 	assert.Equal(t, 1, client.calls)
-	assert.Equal(t, "DE", CachedReplies["1.2.3.4"].CountryCode)
+	cached, found := tempCache.Get("1.2.3.4")
+	assert.True(t, found)
+	assert.Equal(t, "DE", cached.(Reply).CountryCode)
 }
 
 func TestGetCountryCodeCacheMissError(t *testing.T) {
-	resetCache()
+	// Initialize a new cache for this test
+	tempCache := cache.New(5*time.Minute, 10*time.Minute)
+	IPCache = tempCache // Set the global cache for this test
+
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return nil, errors.New("boom")
 		},
 	}
 	cfg := &GetCountryCodeConfig{HTTPClient: client}
-	mutex := &sync.Mutex{}
 
-	_, _, cacheMarker, err := cfg.GetCountryCode("1.2.3.4", mutex)
+	_, _, cacheMarker, err := cfg.GetCountryCode("1.2.3.4")
 
 	assert.Error(t, err)
 	assert.Equal(t, "-", cacheMarker)
+	_, found := tempCache.Get("1.2.3.4")
+	assert.False(t, found) // Should not cache on error
 }

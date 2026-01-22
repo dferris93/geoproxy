@@ -2,7 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"sync"
 )
 
 type MockMutex struct {
@@ -22,7 +21,7 @@ type GetCountryCodeMock struct {
 	ReturnCached string
 }
 
-func (g *GetCountryCodeMock) GetCountryCode(ip string, m *sync.Mutex ) (string, string, string, error) {
+func (g *GetCountryCodeMock) GetCountryCode(ip string) (string, string, string, error) {
 	if g.ReturnErr {
 		return "", "", "", nil
 	} else {

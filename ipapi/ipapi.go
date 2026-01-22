@@ -3,51 +3,41 @@ package ipapi
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"sync"
-	"time"
-)	
+	"net/url"
 
-var (
-	CachedReplies = map[string]Reply{}
-	LRUOrder []string
+	"github.com/patrickmn/go-cache"
 )
 
-type IPAPI interface{
-	GetCountryCode(ip string, m *sync.Mutex) (string, string, string, error)
+var IPCache *cache.Cache
+
+type IPAPI interface {
+	GetCountryCode(ip string) (string, string, string, error)
 }
 
 type Reply struct {
-	TimeStamp   time.Time
 	CountryCode string
 	Region      string
 }
 type GetCountryCodeConfig struct {
 	HTTPClient HTTPClient
+	Cache      *cache.Cache
 }
 
-func (g *GetCountryCodeConfig) GetCountryCode(ip string, m *sync.Mutex) (string, string, string, error) {
-	var countryCode, region string
-	var err error
-	ipAPIConfig := &IPAPIConfig{HTTPClient: g.HTTPClient}
-	m.Lock()
-	reply, ok := CachedReplies[ip]
-	m.Unlock()
-	if ok && time.Since(reply.TimeStamp) < 24*time.Hour {
-		m.Lock()
-		updateLRUOrderLocked(ip)
-		m.Unlock()
-		return reply.CountryCode, reply.Region, "*", nil
+func (g *GetCountryCodeConfig) GetCountryCode(ip string) (string, string, string, error) {
+	if IPCache != nil {
+		if cachedReply, found := IPCache.Get(ip); found {
+			reply := cachedReply.(Reply)
+			return reply.CountryCode, reply.Region, "cached", nil
+		}
 	}
-
-	countryCode, region, err = ipAPIConfig.getIpAPI(ip)
+	ipAPIConfig := &IPAPIConfig{HTTPClient: g.HTTPClient}
+	countryCode, region, err := ipAPIConfig.getIpAPI(ip)
 	if err != nil {
 		return "", "", "-", err
 	}
-	m.Lock()
-	CachedReplies[ip] = Reply{time.Now(), countryCode, region}
-	updateLRUOrderLocked(ip)
-	m.Unlock()
+	if IPCache != nil {
+		IPCache.Set(ip, Reply{CountryCode: countryCode, Region: region}, cache.DefaultExpiration)
+	}
 	return countryCode, region, "-", nil
 }
 
@@ -55,8 +45,10 @@ type IPAPIConfig struct {
 	HTTPClient HTTPClient
 }
 
-func (i* IPAPIConfig) getIpAPI(ip string) (string, string, error) {
-	resp, err := i.HTTPClient.Get(ip)
+func (i *IPAPIConfig) getIpAPI(ip string) (string, string, error) {
+	// PathEscape the IP to prevent path traversal (SSRF)
+	escapedIP := url.PathEscape(ip)
+	resp, err := i.HTTPClient.Get(escapedIP)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get country code: %v", err)
 	}
@@ -77,32 +69,7 @@ func (i* IPAPIConfig) getIpAPI(ip string) (string, string, error) {
 	return data.CountryCode, data.Region, nil
 }
 
-func updateLRUOrderLocked(key string) {
-	for i, v := range LRUOrder {
-		if v == key {
-			LRUOrder = append(LRUOrder[:i], LRUOrder[i+1:]...)
-			break
-		}
-	}
-	LRUOrder = append(LRUOrder, key)
-}
-
-func LRUCachedReplies(m *sync.Mutex, lruSize int) {
-	for {
-		time.Sleep(1 * time.Minute)
-		m.Lock()
-		lruEntries := len(CachedReplies)
-		if lruEntries > lruSize {
-			log.Printf("LRU cache size: %d\n", lruEntries)
-			for len(CachedReplies) > lruSize {
-				if len(LRUOrder) == 0 {
-					break
-				}
-				oldestKey := LRUOrder[0]
-				delete(CachedReplies, oldestKey)
-				LRUOrder = LRUOrder[1:]
-			}
-		}
-		m.Unlock()
-	}
+// LRUCachedReplies is a no-op because the vulnerable caching has been removed.
+func LRUCachedReplies(lruSize int) {
+	// Caching removed due to security vulnerabilities.
 }

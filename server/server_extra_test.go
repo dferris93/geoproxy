@@ -43,9 +43,6 @@ func TestHandlerFactoryNewClientHandler(t *testing.T) {
 		AlwaysAllowed:    []string{"127.0.0.1"},
 		AlwaysDenied:     []string{"10.0.0.1"},
 		ContinueOnError:  true,
-		IptablesBlock:    true,
-		Mutex:            &sync.Mutex{},
-		BlockIPs:         make(chan string),
 		CheckIps:         nil,
 		TransferFunc:     nil,
 		BackendIP:        "127.0.0.1",
@@ -67,7 +64,7 @@ func TestHandlerFactoryNewClientHandler(t *testing.T) {
 		assert.Equal(t, factory.AlwaysAllowed, clientHandler.AlwaysAllowed)
 		assert.Equal(t, factory.AlwaysDenied, clientHandler.AlwaysDenied)
 		assert.Equal(t, factory.ContinueOnError, clientHandler.ContinueOnError)
-		assert.Equal(t, factory.IptablesBlock, clientHandler.IptablesBlock)
+
 		assert.Equal(t, factory.BackendIP, clientHandler.BackendAddr)
 		assert.Equal(t, factory.BackendPort, clientHandler.BackendPort)
 		assert.Equal(t, factory.StartTime, clientHandler.StartTime)

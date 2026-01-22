@@ -24,10 +24,8 @@ type ClientHandler struct {
 	AlwaysAllowed    []string
 	AlwaysDenied     []string
 	ContinueOnError  bool
-	IptablesBlock    bool
 	IPApiClient      ipapi.IPAPI
 	Mutex            *sync.Mutex
-	BlockIPs         chan string
 	CheckIps         common.CheckIP
 	TransferFunc     func(Connection, Connection, *proxyproto.Header)
 	BackendAddr      string
@@ -130,7 +128,7 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 		}
 	}
 
-	h.countryCode, h.region, h.cached, err = h.IPApiClient.GetCountryCode(ip, h.Mutex)
+	h.countryCode, h.region, h.cached, err = h.IPApiClient.GetCountryCode(ip)
 	if err != nil && !h.ContinueOnError {
 		log.Printf("ipapi connection error: %v", err)
 		if !h.ContinueOnError {
@@ -200,9 +198,6 @@ func (h *ClientHandler) processConnection() {
 			h.BackendPort,
 			h.cached,
 			h.DeniedReason)
-		if h.IptablesBlock {
-			h.BlockIPs <- h.clientIP
-		}
 	}
 }
 
