@@ -1,126 +1,148 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"sync"
+	"time"
+
+	"github.com/patrickmn/go-cache"
+
 	"geoproxy/common"
 	"geoproxy/config"
 	"geoproxy/handler"
 	"geoproxy/ipapi"
-	"geoproxy/iptables"
 	"geoproxy/server"
 	"strings"
-	"time"
-
-	"context"
-	"flag"
-	"log"
-	"sync"
 )
 
 func main() {
-	configFile := flag.String("config", "geoproxy.yaml", "Path to the configuration file")
-	continueOnError := flag.Bool("continue", false, "allow connections through on ipapi errors")
-	blockIptables := flag.String("iptables", "", "add rejected IPs to the specified iptables chain")
-	iptablesAction := flag.String("action", "DROP", "iptables action to take on blocked IPs. Default is DROP.")
-	ipapiEndpoint := flag.String("ipapi", "http://ip-api.com/json/", "ipapi endpoint. If you have an API key, change this to https://pro.ip-api.com/json/")
-	lruSize := flag.Int("lru", 10000, "size of the IP address LRU cache")
-	flag.Parse()
+	if err := run(os.Args[1:], runDeps{
+		logger:     log.Default(),
+		flagOutput: os.Stderr,
+		startServer: func(s server.ServerConfig, wg *sync.WaitGroup, ctx context.Context) {
+			go s.StartServer(wg, ctx)
+		},
+	}); err != nil {
+		log.Fatalf("%v", err)
+	}
+}
 
-	config, err := config.ReadConfig(*configFile)
-	if err != nil {
-		log.Fatalf("failed to read configuration file: %v", err)
+type runDeps struct {
+	logger      *log.Logger
+	flagOutput  io.Writer
+	startServer func(server.ServerConfig, *sync.WaitGroup, context.Context)
+}
+
+func run(args []string, deps runDeps) error {
+	if deps.logger == nil {
+		deps.logger = log.Default()
+	}
+	if deps.flagOutput == nil {
+		deps.flagOutput = os.Stderr
+	}
+	if deps.startServer == nil {
+		deps.startServer = func(s server.ServerConfig, wg *sync.WaitGroup, ctx context.Context) {
+			go s.StartServer(wg, ctx)
+		}
 	}
 
-	log.Printf("Starting GeoProxy\n")
-	log.Printf("Configuration file: %s\n", *configFile)
-	log.Printf("Continue on error: %v\n", *continueOnError)
-	log.Printf("Iptables chain: %s\n", *blockIptables)
-	log.Printf("Iptables action: %s\n", *iptablesAction)
-	log.Printf("IPAPI endpoint: %s\n", *ipapiEndpoint)
-	log.Printf("LRU max cache size: %d\n", *lruSize)
+	fs := flag.NewFlagSet("geoproxy", flag.ContinueOnError)
+	fs.SetOutput(deps.flagOutput)
+	configFile := fs.String("config", "geoproxy.yaml", "Path to the configuration file")
+	continueOnError := fs.Bool("continue", false, "allow connections through on ipapi errors")
+	ipapiEndpoint := fs.String("ipapi", "http://ip-api.com/json/", "ipapi endpoint. If you have an API key, change this to https://pro.ip-api.com/json/")
+	cacheExpiration := fs.Duration("cache-expiration", 1*time.Hour, "Default expiration for cache entries")
+	cacheCleanup := fs.Duration("cache-cleanup", 10*time.Minute, "Interval to clean up expired cache entries")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
-	for _, c := range config.Servers {
-		log.Print("----------")
-		log.Printf("Server %s:%s\n", c.ListenIP, c.ListenPort)
-		log.Printf("Backend %s:%s\n", c.BackendIP, c.BackendPort)
-		log.Printf("Allowed countries: %v\n", c.AllowedCountries)
-		log.Printf("Allowed regions: %v\n", c.AllowedRegions)
-		log.Printf("Always allowed: %v\n", c.AlwaysAllowed)
-		log.Printf("Always denied: %v\n", c.AlwaysDenied)
-		log.Printf("Denied countries: %v\n", c.DeniedCountries)
-		log.Printf("Denied regions: %v\n", c.DeniedRegions)
-		log.Printf("RecvProxyProtocol: %v\n", c.RecvProxyProtocol)
-		log.Printf("SendProxyProtocol: %v\n", c.SendProxyProtocol)
-		log.Printf("ProxyProtocolVersion: %d\n", c.ProxyProtocolVersion)
-		log.Printf("TrustedProxies: %v\n", c.TrustedProxies)
-		log.Printf("Days of week: %v\n", c.DaysOfWeek)
-		log.Printf("Start date: %s\n", c.StartDate)
-		log.Printf("End date: %s\n", c.EndDate)
-		log.Printf("Start time: %s\n", c.StartTime)
-		log.Printf("End time: %s\n", c.EndTime)
+	cfg, err := config.ReadConfig(*configFile)
+	if err != nil {
+		return fmt.Errorf("failed to read configuration file: %v", err)
+	}
+
+	deps.logger.Printf("Starting GeoProxy\n")
+	deps.logger.Printf("Configuration file: %s\n", *configFile)
+	deps.logger.Printf("Continue on error: %v\n", *continueOnError)
+	deps.logger.Printf("IPAPI endpoint: %s\n", *ipapiEndpoint)
+	deps.logger.Printf("Cache expiration: %s\n", *cacheExpiration)
+	deps.logger.Printf("Cache cleanup interval: %s\n", *cacheCleanup)
+
+	ipapi.IPCache = cache.New(*cacheExpiration, *cacheCleanup)
+
+	for _, c := range cfg.Servers {
+		deps.logger.Print("----------")
+		deps.logger.Printf("Server %s:%s\n", c.ListenIP, c.ListenPort)
+		deps.logger.Printf("Backend %s:%s\n", c.BackendIP, c.BackendPort)
+		deps.logger.Printf("Allowed countries: %v\n", c.AllowedCountries)
+		deps.logger.Printf("Allowed regions: %v\n", c.AllowedRegions)
+		deps.logger.Printf("Always allowed: %v\n", c.AlwaysAllowed)
+		deps.logger.Printf("Always denied: %v\n", c.AlwaysDenied)
+		deps.logger.Printf("Denied countries: %v\n", c.DeniedCountries)
+		deps.logger.Printf("Denied regions: %v\n", c.DeniedRegions)
+		deps.logger.Printf("RecvProxyProtocol: %v\n", c.RecvProxyProtocol)
+		deps.logger.Printf("SendProxyProtocol: %v\n", c.SendProxyProtocol)
+		deps.logger.Printf("ProxyProtocolVersion: %d\n", c.ProxyProtocolVersion)
+		deps.logger.Printf("TrustedProxies: %v\n", c.TrustedProxies)
+		deps.logger.Printf("Days of week: %v\n", c.DaysOfWeek)
+		deps.logger.Printf("Start date: %s\n", c.StartDate)
+		deps.logger.Printf("End date: %s\n", c.EndDate)
+		deps.logger.Printf("Start time: %s\n", c.StartTime)
+		deps.logger.Printf("End time: %s\n", c.EndTime)
 
 		if len(c.AllowedCountries) == 0 && len(c.DeniedCountries) == 0 {
-			log.Fatalf("no countries specified for server %s:%s", c.ListenIP, c.ListenPort)
+			return fmt.Errorf("no countries specified for server %s:%s", c.ListenIP, c.ListenPort)
 		}
 		if (c.StartDate != "" && c.EndDate == "") || (c.StartDate == "" && c.EndDate != "") {
-			log.Fatalf("both startDate and endDate must be set for server %s:%s", c.ListenIP, c.ListenPort)
+			return fmt.Errorf("both startDate and endDate must be set for server %s:%s", c.ListenIP, c.ListenPort)
 		}
 		if len(c.DaysOfWeek) > 0 && (c.StartDate != "" || c.EndDate != "") {
-			log.Fatalf("daysOfWeek cannot be combined with startDate/endDate for server %s:%s", c.ListenIP, c.ListenPort)
+			return fmt.Errorf("daysOfWeek cannot be combined with startDate/endDate for server %s:%s", c.ListenIP, c.ListenPort)
 		}
 		if c.StartDate != "" && c.EndDate != "" {
 			startDate, err := time.ParseInLocation("2006-01-02", c.StartDate, time.Local)
 			if err != nil {
-				log.Fatalf("failed to parse start date %s: %v", c.StartDate, err)
+				return fmt.Errorf("failed to parse start date %s: %v", c.StartDate, err)
 			}
 			endDate, err := time.ParseInLocation("2006-01-02", c.EndDate, time.Local)
 			if err != nil {
-				log.Fatalf("failed to parse end date %s: %v", c.EndDate, err)
+				return fmt.Errorf("failed to parse end date %s: %v", c.EndDate, err)
 			}
 			if startDate.After(endDate) {
-				log.Fatalf("start date %s is after end date %s", c.StartDate, c.EndDate)
+				return fmt.Errorf("start date %s is after end date %s", c.StartDate, c.EndDate)
 			}
 		}
 		if (c.StartTime != "" && c.EndTime == "") || (c.StartTime == "" && c.EndTime != "") {
-			log.Fatalf("both startTime and endTime must be set for server %s:%s", c.ListenIP, c.ListenPort)
+			return fmt.Errorf("both startTime and endTime must be set for server %s:%s", c.ListenIP, c.ListenPort)
 		}
 		if c.StartTime != "" && c.EndTime != "" {
 			_, err := time.ParseInLocation("15:04", c.StartTime, time.Local)
 			if err != nil {
-				log.Fatalf("failed to parse start time %s: %v", c.StartTime, err)
+				return fmt.Errorf("failed to parse start time %s: %v", c.StartTime, err)
 			}
 			_, err = time.ParseInLocation("15:04", c.EndTime, time.Local)
 			if err != nil {
-				log.Fatalf("failed to parse end time %s: %v", c.EndTime, err)
+				return fmt.Errorf("failed to parse end time %s: %v", c.EndTime, err)
 			}
 		}
 		if len(c.DaysOfWeek) > 0 {
 			_, err = parseDaysOfWeek(c.DaysOfWeek)
 			if err != nil {
-				log.Fatalf("failed to parse days of week %v: %v", c.DaysOfWeek, err)
+				return fmt.Errorf("failed to parse days of week %v: %v", c.DaysOfWeek, err)
 			}
 		}
 	}
 
-	var blockips chan string
-	if *blockIptables != "" {
-		blockips = make(chan string)
-		iptablesConfig := iptables.IpTables{
-			Chain:    *blockIptables,
-			Action:   *iptablesAction,
-			Runner:   &iptables.RealRunner{},
-			CheckIPs: &common.CheckIPs{},
-		}
-		go iptablesConfig.BlockIPs(blockips, context.Background())
-	}
-
-	m := &sync.Mutex{}
-	go ipapi.LRUCachedReplies(m, *lruSize)
-
 	wg := sync.WaitGroup{}
-	for _, c := range config.Servers {
+	for _, c := range cfg.Servers {
 		wg.Add(1)
-		log.Printf("proxy server listening on %s:%s countries: %v regions: %v always allowed: %v always denied: %v",
+		deps.logger.Printf("proxy server listening on %s:%s countries: %v regions: %v always allowed: %v always denied: %v",
 			c.ListenIP,
 			c.ListenPort,
 			c.AllowedCountries,
@@ -131,7 +153,7 @@ func main() {
 		trustedProxies := c.TrustedProxies
 		if !c.RecvProxyProtocol {
 			if len(trustedProxies) > 0 {
-				log.Printf("trustedProxies ignored because recvProxyProtocol is false on %s:%s", c.ListenIP, c.ListenPort)
+				deps.logger.Printf("trustedProxies ignored because recvProxyProtocol is false on %s:%s", c.ListenIP, c.ListenPort)
 			}
 			trustedProxies = nil
 		}
@@ -143,26 +165,26 @@ func main() {
 		if c.StartDate != "" && c.EndDate != "" {
 			startDate, err = time.ParseInLocation("2006-01-02", c.StartDate, time.Local)
 			if err != nil {
-				log.Fatalf("failed to parse start date %s: %v", c.StartDate, err)
+				return fmt.Errorf("failed to parse start date %s: %v", c.StartDate, err)
 			}
 			endDate, err = time.ParseInLocation("2006-01-02", c.EndDate, time.Local)
 			if err != nil {
-				log.Fatalf("failed to parse end date %s: %v", c.EndDate, err)
+				return fmt.Errorf("failed to parse end date %s: %v", c.EndDate, err)
 			}
 		}
 		if c.StartTime != "" && c.EndTime != "" {
 			startTime, err = time.ParseInLocation("15:04", c.StartTime, time.Local)
 			if err != nil {
-				log.Fatalf("failed to parse start time %s: %v", c.StartTime, err)
+				return fmt.Errorf("failed to parse start time %s: %v", c.StartTime, err)
 			}
 			endTime, err = time.ParseInLocation("15:04", c.EndTime, time.Local)
 			if err != nil {
-				log.Fatalf("failed to parse end time %s: %v", c.EndTime, err)
+				return fmt.Errorf("failed to parse end time %s: %v", c.EndTime, err)
 			}
 		}
 		daysOfWeek, err := parseDaysOfWeek(c.DaysOfWeek)
 		if err != nil {
-			log.Fatalf("failed to parse days of week %v: %v", c.DaysOfWeek, err)
+			return fmt.Errorf("failed to parse days of week %v: %v", c.DaysOfWeek, err)
 		}
 		s := server.ServerConfig{
 			ListenIP:             c.ListenIP,
@@ -179,8 +201,9 @@ func main() {
 				IPApiClient: &ipapi.GetCountryCodeConfig{
 					HTTPClient: &ipapi.RealHTTPClient{
 						Endpoint: *ipapiEndpoint,
-						APIKey:   config.APIKey,
+						APIKey:   cfg.APIKey,
 					},
+					Cache: ipapi.IPCache,
 				},
 				AllowedCountries: common.MakeSet(c.AllowedCountries),
 				AllowedRegions:   common.MakeSet(c.AllowedRegions),
@@ -190,10 +213,7 @@ func main() {
 				AlwaysDenied:     c.AlwaysDenied,
 				ContinueOnError:  *continueOnError,
 				CheckIps:         &common.CheckIPs{},
-				Mutex:            m,
 				TransferFunc:     handler.TransferData,
-				IptablesBlock:    *iptablesAction != "",
-				BlockIPs:         blockips,
 				BackendIP:        c.BackendIP,
 				BackendPort:      c.BackendPort,
 				StartTime:        startTime,
@@ -203,9 +223,10 @@ func main() {
 				DaysOfWeek:       daysOfWeek,
 			},
 		}
-		go s.StartServer(&wg, context.Background())
+		deps.startServer(s, &wg, context.Background())
 	}
 	wg.Wait()
+	return nil
 }
 
 func parseDaysOfWeek(days []string) (map[time.Weekday]bool, error) {

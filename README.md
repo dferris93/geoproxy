@@ -5,6 +5,7 @@ Geoproxy is a TCP only proxy that uses the free ip-api.com json api to accept or
 Responses from ip-api.com are cached in RAM for 24 hours to try to cut down on requests as much as possible.  The cache is set to 10K entries by default and when it fills up, it will use an LRU algorithm to delete older entries.
 
 I have recently added Proxy Protocol support so you can preserve the source IP to things that support proxy protocol.
+Note: iptables/ip6tables blocking has been removed; rejected connections are simply closed by the proxy.
 
 # Installation
 
@@ -14,16 +15,12 @@ git clone this repository and run go build.  You'll want to set up a systemd uni
 
 ```
 Usage of ./geoproxy:
-  -action string
-    	iptables action to take on blocked IPs. Default is DROP. (default "DROP")
   -config string
     	Path to the configuration file (default "geoproxy.yaml")
   -continue
     	allow connections through on ipapi errors
   -ipapi string
     	ipapi endpoint (default "http://ip-api.com/json/")
-  -iptables string
-    	add rejected IPs to the specified iptables chain
   -lru int
     	size of the IP address LRU cache (default 10000)
 
@@ -81,7 +78,6 @@ Run the unit tests:
 go test ./...
 ```
 
-Note: iptables tests use mocks and do not modify system firewall rules.
 
 # TODO
 

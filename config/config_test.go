@@ -59,3 +59,29 @@ func TestReadConfigInvalidYAML(t *testing.T) {
 	_, err = ReadConfig(path)
 	assert.Error(t, err)
 }
+
+func TestValidateTrustedProxies(t *testing.T) {
+	tests := []struct {
+		name    string
+		entries []string
+		wantErr bool
+	}{
+		{name: "empty", entries: nil, wantErr: false},
+		{name: "valid ip", entries: []string{"192.0.2.1"}, wantErr: false},
+		{name: "valid cidr", entries: []string{"192.0.2.0/24"}, wantErr: false},
+		{name: "invalid ip", entries: []string{"999.0.0.1"}, wantErr: true},
+		{name: "invalid cidr", entries: []string{"192.0.2.0/33"}, wantErr: true},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateTrustedProxies(tc.entries)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
