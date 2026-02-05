@@ -3,7 +3,7 @@ module geoproxy
 go 1.24
 
 require (
-	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/pires/go-proxyproto v0.8.1
 	github.com/stretchr/testify v1.9.0
 	gopkg.in/yaml.v2 v2.4.0

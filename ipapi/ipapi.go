@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/patrickmn/go-cache"
+	"github.com/hashicorp/golang-lru/v2"
 )
 
-var IPCache *cache.Cache
+var IPCache *lru.Cache[string, Reply]
 
 type IPAPI interface {
 	GetCountryCode(ip string) (string, string, string, error)
@@ -20,13 +20,16 @@ type Reply struct {
 }
 type GetCountryCodeConfig struct {
 	HTTPClient HTTPClient
-	Cache      *cache.Cache
+	Cache      *lru.Cache[string, Reply]
 }
 
 func (g *GetCountryCodeConfig) GetCountryCode(ip string) (string, string, string, error) {
-	if IPCache != nil {
-		if cachedReply, found := IPCache.Get(ip); found {
-			reply := cachedReply.(Reply)
+	cache := g.Cache
+	if cache == nil {
+		cache = IPCache
+	}
+	if cache != nil {
+		if reply, found := cache.Get(ip); found {
 			return reply.CountryCode, reply.Region, "cached", nil
 		}
 	}
@@ -35,8 +38,8 @@ func (g *GetCountryCodeConfig) GetCountryCode(ip string) (string, string, string
 	if err != nil {
 		return "", "", "-", err
 	}
-	if IPCache != nil {
-		IPCache.Set(ip, Reply{CountryCode: countryCode, Region: region}, cache.DefaultExpiration)
+	if cache != nil {
+		cache.Add(ip, Reply{CountryCode: countryCode, Region: region})
 	}
 	return countryCode, region, "-", nil
 }
@@ -67,9 +70,4 @@ func (i *IPAPIConfig) getIpAPI(ip string) (string, string, error) {
 		return "--", "--", fmt.Errorf("failed to get country code for ip: %s", ip)
 	}
 	return data.CountryCode, data.Region, nil
-}
-
-// LRUCachedReplies is a no-op because the vulnerable caching has been removed.
-func LRUCachedReplies(lruSize int) {
-	// Caching removed due to security vulnerabilities.
 }

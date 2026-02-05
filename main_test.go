@@ -107,7 +107,7 @@ servers:
 `)
 
 	capture := &startCapture{}
-	err := run([]string{"-config", path, "-cache-expiration", "2m", "-cache-cleanup", "1m"}, runDeps{
+	err := run([]string{"-config", path}, runDeps{
 		logger:      log.New(io.Discard, "", 0),
 		flagOutput:  io.Discard,
 		startServer: capture.start,

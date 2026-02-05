@@ -7,17 +7,17 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/patrickmn/go-cache"
+	"github.com/hashicorp/golang-lru/v2"
 
 	"geoproxy/common"
 	"geoproxy/config"
 	"geoproxy/handler"
 	"geoproxy/ipapi"
 	"geoproxy/server"
-	"strings"
 )
 
 func main() {
@@ -56,8 +56,7 @@ func run(args []string, deps runDeps) error {
 	configFile := fs.String("config", "geoproxy.yaml", "Path to the configuration file")
 	continueOnError := fs.Bool("continue", false, "allow connections through on ipapi errors")
 	ipapiEndpoint := fs.String("ipapi", "http://ip-api.com/json/", "ipapi endpoint. If you have an API key, change this to https://pro.ip-api.com/json/")
-	cacheExpiration := fs.Duration("cache-expiration", 1*time.Hour, "Default expiration for cache entries")
-	cacheCleanup := fs.Duration("cache-cleanup", 10*time.Minute, "Interval to clean up expired cache entries")
+	lruSize := fs.Int("lru", 10000, "size of the IP address LRU cache")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -71,10 +70,13 @@ func run(args []string, deps runDeps) error {
 	deps.logger.Printf("Configuration file: %s\n", *configFile)
 	deps.logger.Printf("Continue on error: %v\n", *continueOnError)
 	deps.logger.Printf("IPAPI endpoint: %s\n", *ipapiEndpoint)
-	deps.logger.Printf("Cache expiration: %s\n", *cacheExpiration)
-	deps.logger.Printf("Cache cleanup interval: %s\n", *cacheCleanup)
+	deps.logger.Printf("LRU cache size: %d\n", *lruSize)
 
-	ipapi.IPCache = cache.New(*cacheExpiration, *cacheCleanup)
+	cache, err := lru.New[string, ipapi.Reply](*lruSize)
+	if err != nil {
+		return fmt.Errorf("failed to initialize IP cache: %v", err)
+	}
+	ipapi.IPCache = cache
 
 	for _, c := range cfg.Servers {
 		deps.logger.Print("----------")

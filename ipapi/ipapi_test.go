@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/patrickmn/go-cache"
+	"github.com/hashicorp/golang-lru/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,6 +28,15 @@ func responseWithBody(body string) *http.Response {
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
+}
+
+func newTestCache(t *testing.T, size int) *lru.Cache[string, Reply] {
+	t.Helper()
+	cache, err := lru.New[string, Reply](size)
+	if err != nil {
+		t.Fatalf("new cache: %v", err)
+	}
+	return cache
 }
 
 func TestIPAPIGetIpAPISuccess(t *testing.T) {
@@ -91,10 +99,10 @@ func TestIPAPIGetIpAPIClientError(t *testing.T) {
 
 func TestGetCountryCodeCacheHit(t *testing.T) {
 	// Initialize a new cache for this test
-	tempCache := cache.New(5*time.Minute, 10*time.Minute)
+	tempCache := newTestCache(t, 16)
 	IPCache = tempCache // Set the global cache for this test
-	
-	tempCache.Set("1.2.3.4", Reply{CountryCode: "US", Region: "CA"}, cache.DefaultExpiration)
+
+	tempCache.Add("1.2.3.4", Reply{CountryCode: "US", Region: "CA"})
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"DE","region":"BE","status":"success"}`), nil
@@ -113,7 +121,7 @@ func TestGetCountryCodeCacheHit(t *testing.T) {
 
 func TestGetCountryCodeCacheMiss(t *testing.T) {
 	// Initialize a new cache for this test
-	tempCache := cache.New(5*time.Minute, 10*time.Minute)
+	tempCache := newTestCache(t, 16)
 	IPCache = tempCache // Set the global cache for this test
 
 	client := &mockHTTPClient{
@@ -134,13 +142,12 @@ func TestGetCountryCodeCacheMiss(t *testing.T) {
 	assert.True(t, found)
 }
 
-func TestGetCountryCodeCacheExpired(t *testing.T) {
+func TestGetCountryCodeCacheEvicted(t *testing.T) {
 	// Initialize a new cache for this test
-	tempCache := cache.New(5*time.Minute, 10*time.Minute)
+	tempCache := newTestCache(t, 1)
 	IPCache = tempCache // Set the global cache for this test
 
-	tempCache.Set("1.2.3.4", Reply{CountryCode: "US", Region: "CA"}, 5*time.Millisecond) // Set a short-lived item
-	time.Sleep(10 * time.Millisecond)                                                   // Ensure it expires before lookup
+	tempCache.Add("1.2.3.4", Reply{CountryCode: "US", Region: "CA"})
 	client := &mockHTTPClient{
 		getFunc: func(url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"DE","region":"BE","status":"success"}`), nil
@@ -148,21 +155,23 @@ func TestGetCountryCodeCacheExpired(t *testing.T) {
 	}
 	cfg := &GetCountryCodeConfig{HTTPClient: client}
 
-	country, region, cacheMarker, err := cfg.GetCountryCode("1.2.3.4")
+	country, region, cacheMarker, err := cfg.GetCountryCode("5.6.7.8")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "DE", country)
 	assert.Equal(t, "BE", region)
 	assert.Equal(t, "-", cacheMarker)
 	assert.Equal(t, 1, client.calls)
-	cached, found := tempCache.Get("1.2.3.4")
+	_, found := tempCache.Get("1.2.3.4")
+	assert.False(t, found)
+	cached, found := tempCache.Get("5.6.7.8")
 	assert.True(t, found)
-	assert.Equal(t, "DE", cached.(Reply).CountryCode)
+	assert.Equal(t, "DE", cached.CountryCode)
 }
 
 func TestGetCountryCodeCacheMissError(t *testing.T) {
 	// Initialize a new cache for this test
-	tempCache := cache.New(5*time.Minute, 10*time.Minute)
+	tempCache := newTestCache(t, 16)
 	IPCache = tempCache // Set the global cache for this test
 
 	client := &mockHTTPClient{

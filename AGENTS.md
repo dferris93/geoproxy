@@ -4,7 +4,7 @@
 GeoProxy is a TCP-only proxy that accepts or blocks connections based on source IP geolocation from ip-api.com. It can optionally send or receive HAProxy PROXY protocol headers and can block rejected IPs using iptables.
 
 ## Entry points
-- `main.go`: CLI flags, config validation, starts server instances, starts iptables blocking goroutine, and launches the LRU cache cleanup loop.
+- `main.go`: CLI flags, config validation, starts server instances, starts iptables blocking goroutine, and initializes the LRU cache.
 - `geoproxy.yaml`: Default configuration file read by `config.ReadConfig`.
 
 ## Main flow
@@ -17,7 +17,7 @@ GeoProxy is a TCP-only proxy that accepts or blocks connections based on source 
 - `config/`: YAML parsing and validation (IP/CIDR validation for `trustedProxies`, schedule parsing checks).
 - `server/`: Listener and dialer abstractions and server loop; wraps listener in `proxyproto.Listener` when receiving PROXY protocol.
 - `handler/`: Per-connection logic and data transfer; supports always-allow/deny, country/region rules, time/date/day gating, and iptables blocking.
-- `ipapi/`: HTTP client and response cache; global cache + LRU eviction loop.
+- `ipapi/`: HTTP client and response cache; global LRU cache with size-based eviction.
 - `iptables/`: Command runner and blocking logic (uses `iptables` for IPv4 and `ip6tables` for IPv6).
 - `common/`: Shared helpers (set helpers, CIDR checks, date/time range helpers).
 
