@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"geoproxy/common"
 	"geoproxy/mocks"
+	"net"
 	"testing"
 	"time"
 
@@ -12,6 +14,15 @@ import (
 )
 
 func TransferFuncMock(ClientConn Connection, BackendConn Connection, proxyHeader *proxyproto.Header) {
+}
+
+type staticDialer struct {
+	conn net.Conn
+	err  error
+}
+
+func (d *staticDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return d.conn, d.err
 }
 
 func TestHandler(t *testing.T) {
@@ -24,17 +35,15 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{"127.0.0.1"},
 			AlwaysDenied:     []string{},
-						ContinueOnError:  false,
-						IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
+			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
 			CheckIps:         &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
 			TransferFunc:     TransferFuncMock,
+			BackendDialer:    &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
 			BackendAddr:      "127.0.0.1",
 			BackendPort:      "8080",
-			ProxyHeader:      nil,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestAlwaysAllowedv6True", func(t *testing.T) {
@@ -46,18 +55,16 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{"fe80::3c9e:f7ff:febc:caa"},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
+			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
 
-			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
-
-			CheckIps:     &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
+			CheckIps:      &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 6}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 6}
-		BackendConn := mocks.MockNetConn{IPVersion: 6}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestAlwaysAllowedFalse", func(t *testing.T) {
@@ -69,19 +76,16 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{"127.0.0.1"},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
+			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
 
-			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
-
-			CheckIps:     &MockCheckIP{CheckSubnetsReturn: false, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
+			CheckIps:      &MockCheckIP{CheckSubnetsReturn: false, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAlwaysDeniedv4True", func(t *testing.T) {
@@ -93,19 +97,16 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{"127.0.0.1"},
-			ContinueOnError:  false,
+			IPApiClient:      &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
 
-			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
-
-			CheckIps:     &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
+			CheckIps:      &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAlwaysDeniedv6True", func(t *testing.T) {
@@ -117,19 +118,17 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{"fe80::3c9e:f7ff:febc:caa"},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
 
-			CheckIps:     &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
+			CheckIps:      &MockCheckIP{CheckSubnetsReturn: true, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 6}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 6}
-		BackendConn := mocks.MockNetConn{IPVersion: 6}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAlwaysDeniedFalse", func(t *testing.T) {
@@ -141,19 +140,17 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{"127.0.0.1"},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA"},
 
-			CheckIps:     &MockCheckIP{CheckSubnetsReturn: false, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
+			CheckIps:      &MockCheckIP{CheckSubnetsReturn: false, CheckIPTypeReturn: 4, CheckIPTypeErr: false},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestDeniedCountries", func(t *testing.T) {
@@ -165,19 +162,17 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("TestAllowedCountries", func(t *testing.T) {
@@ -189,19 +184,17 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestAllowedRegions", func(t *testing.T) {
@@ -213,19 +206,17 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("TestDeniedRegions", func(t *testing.T) {
@@ -237,19 +228,17 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{"Beijing": true},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("Test Start and End Time is good before midnight", func(t *testing.T) {
@@ -264,22 +253,20 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
-			StartTime:    startTime,
-			EndTime:      endTime,
-			Now:          now,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
+			StartTime:     startTime,
+			EndTime:       endTime,
+			Now:           now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("Test Start and End Time is good past midnight", func(t *testing.T) {
@@ -294,22 +281,20 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
-			StartTime:    startTime,
-			EndTime:      endTime,
-			Now:          now,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
+			StartTime:     startTime,
+			EndTime:       endTime,
+			Now:           now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("Test Start and End Time is bad before start", func(t *testing.T) {
@@ -324,22 +309,20 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
-			StartTime:    startTime,
-			EndTime:      endTime,
-			Now:          now,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
+			StartTime:     startTime,
+			EndTime:       endTime,
+			Now:           now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("Test Start and End Time is bad after end", func(t *testing.T) {
@@ -354,22 +337,20 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
-			StartTime:    startTime,
-			EndTime:      endTime,
-			Now:          now,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
+			StartTime:     startTime,
+			EndTime:       endTime,
+			Now:           now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("Test Start and End Date is good", func(t *testing.T) {
@@ -384,22 +365,20 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
-			StartDate:    startDate,
-			EndDate:      endDate,
-			Now:          now,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
+			StartDate:     startDate,
+			EndDate:       endDate,
+			Now:           now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("Test Start and End Date is bad", func(t *testing.T) {
@@ -414,22 +393,20 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
-			StartDate:    startDate,
-			EndDate:      endDate,
-			Now:          now,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
+			StartDate:     startDate,
+			EndDate:       endDate,
+			Now:           now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 	t.Run("Test Days of Week is good", func(t *testing.T) {
@@ -442,21 +419,19 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
-			DaysOfWeek:   map[time.Weekday]bool{time.Monday: true},
-			Now:          now,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
+			DaysOfWeek:    map[time.Weekday]bool{time.Monday: true},
+			Now:           now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, true, h.accepted)
 	})
 	t.Run("Test Days of Week is bad", func(t *testing.T) {
@@ -469,21 +444,19 @@ func TestHandler(t *testing.T) {
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
-			ContinueOnError:  false,
 
 			IPApiClient: &GetCountryCodeMock{ReturnCountry: "CN", ReturnRegion: "Beijing"},
 
-			CheckIps:     &common.CheckIPs{},
-			TransferFunc: TransferFuncMock,
-			BackendAddr:  "127.0.0.1",
-			BackendPort:  "8080",
-			ProxyHeader:  nil,
-			DaysOfWeek:   map[time.Weekday]bool{time.Tuesday: true},
-			Now:          now,
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
+			DaysOfWeek:    map[time.Weekday]bool{time.Tuesday: true},
+			Now:           now,
 		}
 		ClientConn := mocks.MockNetConn{IPVersion: 4}
-		BackendConn := mocks.MockNetConn{IPVersion: 4}
-		h.HandleClient(&ClientConn, &BackendConn, nil)
+		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, false, h.accepted)
 	})
 }

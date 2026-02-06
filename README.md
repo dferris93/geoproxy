@@ -7,6 +7,10 @@ Responses from ip-api.com are cached in RAM to try to cut down on requests as mu
 I have recently added Proxy Protocol support so you can preserve the source IP to things that support proxy protocol.
 Note: iptables/ip6tables blocking has been removed; rejected connections are simply closed by the proxy.
 
+# Security Notes (PROXY Protocol)
+
+If you enable `recvProxyProtocol`, you **must** configure `trustedProxies` as a YAML list of plain IPv4/IPv6 addresses (no CIDRs) and ensure only those proxy IPs can connect. GeoProxy will reject non-trusted upstreams and will require trusted upstreams to send a PROXY header. If you trust PROXY headers from untrusted sources, clients can spoof their source IP and bypass geo rules or inject fake client addresses into backends.
+
 # Installation
 
 git clone this repository and run go build.  You'll want to set up a systemd unit file to start/stop/restart on errors.
@@ -17,10 +21,22 @@ git clone this repository and run go build.  You'll want to set up a systemd uni
 Usage of ./geoproxy:
   -config string
     	Path to the configuration file (default "geoproxy.yaml")
-  -continue
-    	allow connections through on ipapi errors
+  -ipapi-timeout duration
+    	timeout for ipapi HTTP requests (e.g. 5s) (default 5s)
+  -ipapi-max-bytes int
+    	maximum bytes to read from ipapi responses (default 1MiB) (default 1048576)
+  -backend-dial-timeout duration
+    	timeout for backend TCP dials (e.g. 5s) (default 5s)
+  -idle-timeout duration
+    	idle timeout for proxied connections (0 disables) (default 0s)
+  -max-conn-lifetime duration
+    	maximum lifetime for a proxied connection (0 disables; e.g. 24h) (default 24h0m0s)
+  -max-conns int
+    	maximum concurrent client connections per server (0 disables) (default 1024)
+  -proxyproto-timeout duration
+    	timeout for receiving HAProxy PROXY protocol headers from trusted proxies (e.g. 1s) (default 1s)
   -ipapi string
-    	ipapi endpoint (default "http://ip-api.com/json/")
+    	ipapi endpoint override (free accounts only). Defaults to http://ip-api.com/json/ when apiKey is empty. When apiKey is set, the endpoint is forced to https://pro.ip-api.com/json/ and cannot be overridden
   -lru int
     	size of the IP address LRU cache (default 10000)
 
@@ -53,11 +69,12 @@ servers:
     sendProxyProtocol: true
     recvProxyProtocol: true
     trustedProxies:
-      - "10.0.0.0/8"
+      - "10.0.0.10"
+      - "10.0.0.11"
 ```
 
 Note: `daysOfWeek` cannot be combined with `startDate`/`endDate` in the same server block.
-Note: when `recvProxyProtocol` is true and `trustedProxies` is empty, proxy headers are trusted from any source (use with caution); `trustedProxies` are ignored when `recvProxyProtocol` is false.
+Note: when `recvProxyProtocol` is true, `trustedProxies` is required and GeoProxy will reject non-trusted upstreams. `trustedProxies` must be a list of plain IPs (no CIDRs). `trustedProxies` are ignored when `recvProxyProtocol` is false.
 
 # Limitations
 

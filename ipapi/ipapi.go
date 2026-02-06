@@ -1,8 +1,10 @@
 package ipapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 
 	"github.com/hashicorp/golang-lru/v2"
@@ -11,7 +13,7 @@ import (
 var IPCache *lru.Cache[string, Reply]
 
 type IPAPI interface {
-	GetCountryCode(ip string) (string, string, string, error)
+	GetCountryCode(ctx context.Context, ip string) (string, string, string, error)
 }
 
 type Reply struct {
@@ -19,11 +21,12 @@ type Reply struct {
 	Region      string
 }
 type GetCountryCodeConfig struct {
-	HTTPClient HTTPClient
-	Cache      *lru.Cache[string, Reply]
+	HTTPClient       HTTPClient
+	Cache            *lru.Cache[string, Reply]
+	MaxResponseBytes int64
 }
 
-func (g *GetCountryCodeConfig) GetCountryCode(ip string) (string, string, string, error) {
+func (g *GetCountryCodeConfig) GetCountryCode(ctx context.Context, ip string) (string, string, string, error) {
 	cache := g.Cache
 	if cache == nil {
 		cache = IPCache
@@ -33,8 +36,8 @@ func (g *GetCountryCodeConfig) GetCountryCode(ip string) (string, string, string
 			return reply.CountryCode, reply.Region, "cached", nil
 		}
 	}
-	ipAPIConfig := &IPAPIConfig{HTTPClient: g.HTTPClient}
-	countryCode, region, err := ipAPIConfig.getIpAPI(ip)
+	ipAPIConfig := &IPAPIConfig{HTTPClient: g.HTTPClient, MaxResponseBytes: g.MaxResponseBytes}
+	countryCode, region, err := ipAPIConfig.getIpAPI(ctx, ip)
 	if err != nil {
 		return "", "", "-", err
 	}
@@ -45,24 +48,35 @@ func (g *GetCountryCodeConfig) GetCountryCode(ip string) (string, string, string
 }
 
 type IPAPIConfig struct {
-	HTTPClient HTTPClient
+	HTTPClient       HTTPClient
+	MaxResponseBytes int64
 }
 
-func (i *IPAPIConfig) getIpAPI(ip string) (string, string, error) {
+func (i *IPAPIConfig) getIpAPI(ctx context.Context, ip string) (string, string, error) {
 	// PathEscape the IP to prevent path traversal (SSRF)
 	escapedIP := url.PathEscape(ip)
-	resp, err := i.HTTPClient.Get(escapedIP)
+	resp, err := i.HTTPClient.Get(ctx, escapedIP)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get country code: %v", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", "", fmt.Errorf("ipapi returned non-200 status: %d", resp.StatusCode)
+	}
+
+	limit := i.MaxResponseBytes
+	if limit <= 0 {
+		limit = 1 << 20 // 1MiB
+	}
+	limited := io.LimitReader(resp.Body, limit)
 
 	var data struct {
 		CountryCode string `json:"countryCode"`
 		Region      string `json:"region"`
 		Status      string `json:"status"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(limited).Decode(&data); err != nil {
 		return "", "", fmt.Errorf("failed to decode response: %v", err)
 	}
 

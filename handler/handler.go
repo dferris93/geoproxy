@@ -1,65 +1,74 @@
 package handler
 
 import (
+	"context"
 	"geoproxy/common"
 	"geoproxy/ipapi"
 	"io"
 	"log"
 	"net"
-	"sync"
+	"strings"
 	"time"
 
 	proxyproto "github.com/pires/go-proxyproto"
 )
 
 type Handler interface {
-	HandleClient(Connection, Connection, *proxyproto.Header)
+	HandleClient(context.Context, Connection)
 }
 
 type ClientHandler struct {
-	AllowedCountries map[string]bool
-	AllowedRegions   map[string]bool
-	DeniedCountries  map[string]bool
-	DeniedRegions    map[string]bool
-	AlwaysAllowed    []string
-	AlwaysDenied     []string
-	ContinueOnError  bool
-	IPApiClient      ipapi.IPAPI
-	Mutex            *sync.Mutex
-	CheckIps         common.CheckIP
-	TransferFunc     func(Connection, Connection, *proxyproto.Header)
-	BackendAddr      string
-	BackendPort      string
-	countryCode      string
-	region           string
-	cached           string
-	clientConn       Connection
-	backendConn      Connection
-	accepted         bool
-	clientAddr       string
-	clientIP         string
-	ProxyHeader      *proxyproto.Header
-	StartTime        time.Time
-	EndTime          time.Time
-	StartDate        time.Time
-	EndDate          time.Time
-	DaysOfWeek       map[time.Weekday]bool
-	Now              time.Time
-	DeniedReason     string
+	AllowedCountries     map[string]bool
+	AllowedRegions       map[string]bool
+	DeniedCountries      map[string]bool
+	DeniedRegions        map[string]bool
+	AlwaysAllowed        []string
+	AlwaysDenied         []string
+	IPApiClient          ipapi.IPAPI
+	CheckIps             common.CheckIP
+	TransferFunc         func(Connection, Connection, *proxyproto.Header)
+	BackendDialer        BackendDialer
+	BackendAddr          string
+	BackendPort          string
+	countryCode          string
+	region               string
+	cached               string
+	clientConn           Connection
+	accepted             bool
+	clientAddr           string
+	clientIP             string
+	SendProxyProtocol    bool
+	ProxyProtocolVersion int
+	MaxConnLifetime      time.Duration
+	StartTime            time.Time
+	EndTime              time.Time
+	StartDate            time.Time
+	EndDate              time.Time
+	DaysOfWeek           map[time.Weekday]bool
+	Now                  time.Time
+	DeniedReason         string
+	IdleTimeout          time.Duration
 }
 
-func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connection, proxyHeader *proxyproto.Header) {
-
-	h.ProxyHeader = proxyHeader
+func (h *ClientHandler) HandleClient(ctx context.Context, ClientConn Connection) {
+	// Force early PROXY header parsing (if any) so we can reject invalid headers
+	// before doing ip-api work or dialing the backend.
+	if _, err := ClientConn.Read(make([]byte, 0)); err != nil {
+		log.Printf("Failed to read/validate PROXY header: %v", err)
+		_ = ClientConn.Close()
+		return
+	}
 
 	clientAddr := ClientConn.RemoteAddr().String()
-
-	var err error
 
 	ip, _, err := net.SplitHostPort(clientAddr)
 	if err != nil {
 		log.Printf("Failed to split host port: %v", err)
+		_ = ClientConn.Close()
 		return
+	}
+	if i := strings.LastIndexByte(ip, '%'); i >= 0 {
+		ip = ip[:i]
 	}
 
 	h.clientAddr = clientAddr
@@ -68,13 +77,12 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 	h.region = "--"
 	h.cached = "--"
 	h.clientConn = ClientConn
-	h.backendConn = BackendConn
 
 	if len(h.AlwaysDenied) > 0 {
 		if h.CheckIps.CheckSubnets(h.AlwaysDenied, ip) {
 			h.accepted = false
 			h.DeniedReason = "Always denied"
-			h.processConnection()
+			h.processConnection(ctx)
 			return
 		}
 	}
@@ -82,7 +90,7 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 	if len(h.AlwaysAllowed) > 0 {
 		if h.CheckIps.CheckSubnets(h.AlwaysAllowed, ip) {
 			h.accepted = true
-			h.processConnection()
+			h.processConnection(ctx)
 			return
 		}
 	}
@@ -96,12 +104,13 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 			ok, err := common.CheckDateRange(h.StartDate, h.EndDate, now)
 			if err != nil {
 				log.Printf("Failed to check date range: %v", err)
+				_ = ClientConn.Close()
 				return
 			}
 			if !ok {
 				h.accepted = false
 				h.DeniedReason = "connection not allowed on this date"
-				h.processConnection()
+				h.processConnection(ctx)
 				return
 			}
 		}
@@ -109,7 +118,7 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 			if !h.DaysOfWeek[now.Weekday()] {
 				h.accepted = false
 				h.DeniedReason = "connection not allowed on this day"
-				h.processConnection()
+				h.processConnection(ctx)
 				return
 			}
 		}
@@ -117,30 +126,25 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 			ok, err := common.CheckTime(h.StartTime, h.EndTime, now)
 			if err != nil {
 				log.Printf("Failed to check time: %v", err)
+				_ = ClientConn.Close()
 				return
 			}
 			if !ok {
 				h.accepted = false
 				h.DeniedReason = "connection not allowed at this time"
-				h.processConnection()
+				h.processConnection(ctx)
 				return
 			}
 		}
 	}
 
-	h.countryCode, h.region, h.cached, err = h.IPApiClient.GetCountryCode(ip)
-	if err != nil && !h.ContinueOnError {
+	h.countryCode, h.region, h.cached, err = h.IPApiClient.GetCountryCode(ctx, ip)
+	if err != nil {
 		log.Printf("ipapi connection error: %v", err)
-		if !h.ContinueOnError {
-			ClientConn.Close()
-			BackendConn.Close()
-			return
-		} else {
-			log.Printf("continuing on despite error")
-			h.accepted = true
-			h.processConnection()
-			return
-		}
+		h.accepted = false
+		h.DeniedReason = "ipapi error"
+		h.processConnection(ctx)
+		return
 	}
 
 	countryAccepted := false
@@ -169,11 +173,24 @@ func (h *ClientHandler) HandleClient(ClientConn Connection, BackendConn Connecti
 	if !h.accepted {
 		h.DeniedReason = "country or region denied"
 	}
-	h.processConnection()
+	h.processConnection(ctx)
 }
 
-func (h *ClientHandler) processConnection() {
+func (h *ClientHandler) processConnection(ctx context.Context) {
 	if h.accepted {
+		if h.BackendDialer == nil {
+			log.Printf("no backend dialer configured; dropping connection from %s", h.clientAddr)
+			_ = h.clientConn.Close()
+			return
+		}
+		backendTuple := net.JoinHostPort(h.BackendAddr, h.BackendPort)
+		backendConn, err := h.BackendDialer.DialContext(ctx, "tcp", backendTuple)
+		if err != nil {
+			log.Printf("failed to connect to backend %s: %v", backendTuple, err)
+			_ = h.clientConn.Close()
+			return
+		}
+
 		log.Printf("accepted connection from %s country: %s region: %s to %s:%s %s",
 			h.clientAddr,
 			h.countryCode,
@@ -181,7 +198,15 @@ func (h *ClientHandler) processConnection() {
 			h.BackendAddr,
 			h.BackendPort,
 			h.cached)
-		h.TransferFunc(h.clientConn, h.backendConn, h.ProxyHeader)
+		clientConn := withConnLimits(h.clientConn, h.IdleTimeout, h.MaxConnLifetime)
+		backendWrapped := withConnLimits(Connection(backendConn), h.IdleTimeout, h.MaxConnLifetime)
+
+		var hdr *proxyproto.Header
+		if h.SendProxyProtocol {
+			hdr = proxyproto.HeaderProxyFromAddrs(byte(h.ProxyProtocolVersion), clientConn.RemoteAddr(), backendConn.RemoteAddr())
+		}
+		h.TransferFunc(clientConn, backendWrapped, hdr)
+
 		log.Printf("closed connection from %s country: %s region: %s to %s:%s %s",
 			h.clientAddr,
 			h.countryCode,
@@ -198,27 +223,74 @@ func (h *ClientHandler) processConnection() {
 			h.BackendPort,
 			h.cached,
 			h.DeniedReason)
+		_ = h.clientConn.Close()
 	}
 }
 
 func TransferData(ClientConn Connection, BackendConn Connection, h *proxyproto.Header) {
-	defer ClientConn.Close()
-	defer BackendConn.Close()
-	go func() {
-		if h != nil {
-			_, err := h.WriteTo(BackendConn)
-			if err != nil {
-				log.Printf("Error writing proxy header: %v", err)
+	defer func() { _ = ClientConn.Close() }()
+	defer func() { _ = BackendConn.Close() }()
+
+	// Ensure PROXY header is fully written before forwarding any client bytes.
+	if h != nil {
+		if _, err := h.WriteTo(BackendConn); err != nil {
+			log.Printf("Error writing proxy header: %v", err)
+			return
+		}
+	}
+
+	type closeWriter interface{ CloseWrite() error }
+	type tcpConnGetter interface {
+		TCPConn() (*net.TCPConn, bool)
+	}
+	type rawConnGetter interface {
+		Raw() net.Conn
+	}
+
+	closeWriteOrClose := func(c Connection) {
+		if cw, ok := c.(closeWriter); ok {
+			_ = cw.CloseWrite()
+			return
+		}
+		// Some wrappers (notably proxyproto.Conn) don't expose CloseWrite, but can
+		// provide the underlying TCPConn.
+		if tg, ok := c.(tcpConnGetter); ok {
+			if tcp, ok := tg.TCPConn(); ok {
+				_ = tcp.CloseWrite()
+				return
 			}
 		}
-		_, err := io.Copy(BackendConn, ClientConn)
-		if err != nil {
-			log.Printf("Error copying data from client to backend: %v", err)
+		if rg, ok := c.(rawConnGetter); ok {
+			if cw, ok := rg.Raw().(closeWriter); ok {
+				_ = cw.CloseWrite()
+				return
+			}
 		}
+		_ = c.Close()
+	}
+
+	errCh := make(chan error, 2)
+
+	go func() {
+		_, err := io.Copy(BackendConn, ClientConn)
+		// Signal EOF to backend (or fully close if half-close isn't available).
+		closeWriteOrClose(BackendConn)
+		errCh <- err
 	}()
 
-	_, err := io.Copy(ClientConn, BackendConn)
-	if err != nil {
-		log.Printf("Error copying data from backend to client: %v", err)
+	go func() {
+		_, err := io.Copy(ClientConn, BackendConn)
+		// Signal EOF to client (or fully close if half-close isn't available).
+		closeWriteOrClose(ClientConn)
+		errCh <- err
+	}()
+
+	err1 := <-errCh
+	err2 := <-errCh
+	if err1 != nil && err1 != io.EOF {
+		log.Printf("Error copying data (client->backend): %v", err1)
+	}
+	if err2 != nil && err2 != io.EOF {
+		log.Printf("Error copying data (backend->client): %v", err2)
 	}
 }

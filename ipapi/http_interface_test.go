@@ -1,8 +1,10 @@
 package ipapi
 
 import (
+	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -21,7 +23,7 @@ func TestRealHTTPClientGetWithoutAPIKey(t *testing.T) {
 	defer func() { http.DefaultTransport = oldTransport }()
 
 	client := &RealHTTPClient{Endpoint: "http://example.test/json/"}
-	resp, err := client.Get("1.2.3.4")
+	resp, err := client.Get(context.Background(), "1.2.3.4")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -48,7 +50,7 @@ func TestRealHTTPClientGetWithAPIKey(t *testing.T) {
 	defer func() { http.DefaultTransport = oldTransport }()
 
 	client := &RealHTTPClient{Endpoint: "http://example.test/json", APIKey: "testkey"}
-	resp, err := client.Get("1.2.3.4")
+	resp, err := client.Get(context.Background(), "1.2.3.4")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -57,8 +59,15 @@ func TestRealHTTPClientGetWithAPIKey(t *testing.T) {
 	if gotPath != "/json/1.2.3.4" {
 		t.Fatalf("expected path /json/1.2.3.4, got %s", gotPath)
 	}
-	if gotQuery != "key=testkey&fields=countryCode,region,status" {
-		t.Fatalf("unexpected query: %s", gotQuery)
+	q, err := url.ParseQuery(gotQuery)
+	if err != nil {
+		t.Fatalf("ParseQuery: %v", err)
+	}
+	if q.Get("key") != "testkey" {
+		t.Fatalf("unexpected key: %s", q.Get("key"))
+	}
+	if q.Get("fields") != "countryCode,region,status" {
+		t.Fatalf("unexpected fields: %s", q.Get("fields"))
 	}
 }
 

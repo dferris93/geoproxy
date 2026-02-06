@@ -1,6 +1,7 @@
 package ipapi
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -12,15 +13,15 @@ import (
 )
 
 type mockHTTPClient struct {
-	getFunc func(url string) (*http.Response, error)
+	getFunc func(ctx context.Context, url string) (*http.Response, error)
 	calls   int
 	lastURL string
 }
 
-func (m *mockHTTPClient) Get(url string) (*http.Response, error) {
+func (m *mockHTTPClient) Get(ctx context.Context, url string) (*http.Response, error) {
 	m.calls++
 	m.lastURL = url
-	return m.getFunc(url)
+	return m.getFunc(ctx, url)
 }
 
 func responseWithBody(body string) *http.Response {
@@ -41,13 +42,13 @@ func newTestCache(t *testing.T, size int) *lru.Cache[string, Reply] {
 
 func TestIPAPIGetIpAPISuccess(t *testing.T) {
 	client := &mockHTTPClient{
-		getFunc: func(url string) (*http.Response, error) {
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"US","region":"CA","status":"success"}`), nil
 		},
 	}
 	cfg := &IPAPIConfig{HTTPClient: client}
 
-	country, region, err := cfg.getIpAPI("1.2.3.4")
+	country, region, err := cfg.getIpAPI(context.Background(), "1.2.3.4")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "US", country)
@@ -58,26 +59,26 @@ func TestIPAPIGetIpAPISuccess(t *testing.T) {
 
 func TestIPAPIGetIpAPIDecodeError(t *testing.T) {
 	client := &mockHTTPClient{
-		getFunc: func(url string) (*http.Response, error) {
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return responseWithBody(`not-json`), nil
 		},
 	}
 	cfg := &IPAPIConfig{HTTPClient: client}
 
-	_, _, err := cfg.getIpAPI("1.2.3.4")
+	_, _, err := cfg.getIpAPI(context.Background(), "1.2.3.4")
 
 	assert.Error(t, err)
 }
 
 func TestIPAPIGetIpAPIStatusError(t *testing.T) {
 	client := &mockHTTPClient{
-		getFunc: func(url string) (*http.Response, error) {
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"--","region":"--","status":"fail"}`), nil
 		},
 	}
 	cfg := &IPAPIConfig{HTTPClient: client}
 
-	country, region, err := cfg.getIpAPI("1.2.3.4")
+	country, region, err := cfg.getIpAPI(context.Background(), "1.2.3.4")
 
 	assert.Error(t, err)
 	assert.Equal(t, "--", country)
@@ -86,13 +87,13 @@ func TestIPAPIGetIpAPIStatusError(t *testing.T) {
 
 func TestIPAPIGetIpAPIClientError(t *testing.T) {
 	client := &mockHTTPClient{
-		getFunc: func(url string) (*http.Response, error) {
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return nil, errors.New("boom")
 		},
 	}
 	cfg := &IPAPIConfig{HTTPClient: client}
 
-	_, _, err := cfg.getIpAPI("1.2.3.4")
+	_, _, err := cfg.getIpAPI(context.Background(), "1.2.3.4")
 
 	assert.Error(t, err)
 }
@@ -104,13 +105,13 @@ func TestGetCountryCodeCacheHit(t *testing.T) {
 
 	tempCache.Add("1.2.3.4", Reply{CountryCode: "US", Region: "CA"})
 	client := &mockHTTPClient{
-		getFunc: func(url string) (*http.Response, error) {
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"DE","region":"BE","status":"success"}`), nil
 		},
 	}
 	cfg := &GetCountryCodeConfig{HTTPClient: client}
 
-	country, region, cacheMarker, err := cfg.GetCountryCode("1.2.3.4")
+	country, region, cacheMarker, err := cfg.GetCountryCode(context.Background(), "1.2.3.4")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "US", country)
@@ -125,13 +126,13 @@ func TestGetCountryCodeCacheMiss(t *testing.T) {
 	IPCache = tempCache // Set the global cache for this test
 
 	client := &mockHTTPClient{
-		getFunc: func(url string) (*http.Response, error) {
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"US","region":"CA","status":"success"}`), nil
 		},
 	}
 	cfg := &GetCountryCodeConfig{HTTPClient: client}
 
-	country, region, cacheMarker, err := cfg.GetCountryCode("1.2.3.4")
+	country, region, cacheMarker, err := cfg.GetCountryCode(context.Background(), "1.2.3.4")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "US", country)
@@ -149,13 +150,13 @@ func TestGetCountryCodeCacheEvicted(t *testing.T) {
 
 	tempCache.Add("1.2.3.4", Reply{CountryCode: "US", Region: "CA"})
 	client := &mockHTTPClient{
-		getFunc: func(url string) (*http.Response, error) {
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"DE","region":"BE","status":"success"}`), nil
 		},
 	}
 	cfg := &GetCountryCodeConfig{HTTPClient: client}
 
-	country, region, cacheMarker, err := cfg.GetCountryCode("5.6.7.8")
+	country, region, cacheMarker, err := cfg.GetCountryCode(context.Background(), "5.6.7.8")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "DE", country)
@@ -175,13 +176,13 @@ func TestGetCountryCodeCacheMissError(t *testing.T) {
 	IPCache = tempCache // Set the global cache for this test
 
 	client := &mockHTTPClient{
-		getFunc: func(url string) (*http.Response, error) {
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return nil, errors.New("boom")
 		},
 	}
 	cfg := &GetCountryCodeConfig{HTTPClient: client}
 
-	_, _, cacheMarker, err := cfg.GetCountryCode("1.2.3.4")
+	_, _, cacheMarker, err := cfg.GetCountryCode(context.Background(), "1.2.3.4")
 
 	assert.Error(t, err)
 	assert.Equal(t, "-", cacheMarker)

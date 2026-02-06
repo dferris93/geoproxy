@@ -68,9 +68,10 @@ func TestValidateTrustedProxies(t *testing.T) {
 	}{
 		{name: "empty", entries: nil, wantErr: false},
 		{name: "valid ip", entries: []string{"192.0.2.1"}, wantErr: false},
-		{name: "valid cidr", entries: []string{"192.0.2.0/24"}, wantErr: false},
+		{name: "cidr rejected", entries: []string{"192.0.2.0/24"}, wantErr: true},
 		{name: "invalid ip", entries: []string{"999.0.0.1"}, wantErr: true},
-		{name: "invalid cidr", entries: []string{"192.0.2.0/33"}, wantErr: true},
+		{name: "invalid cidr rejected", entries: []string{"192.0.2.0/33"}, wantErr: true},
+		{name: "valid ipv6", entries: []string{"2001:db8::1"}, wantErr: false},
 	}
 
 	for _, tc := range tests {

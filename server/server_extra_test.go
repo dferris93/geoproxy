@@ -16,8 +16,10 @@ type captureHandler struct {
 	headerCh chan *proxyproto.Header
 }
 
-func (c *captureHandler) HandleClient(client handler.Connection, backend handler.Connection, hdr *proxyproto.Header) {
-	c.headerCh <- hdr
+func (c *captureHandler) HandleClient(_ context.Context, client handler.Connection) {
+	// Handler should no longer receive an already-built header from the server.
+	// Proxy headers are constructed in the handler after accept.
+	c.headerCh <- nil
 }
 
 type captureHandlerFactory struct {
@@ -36,22 +38,24 @@ func TestHandlerFactoryNewClientHandler(t *testing.T) {
 	days := map[time.Weekday]bool{time.Monday: true}
 
 	factory := &HandlerFactory{
-		AllowedCountries: map[string]bool{"US": true},
-		AllowedRegions:   map[string]bool{"CA": true},
-		DeniedCountries:  map[string]bool{"CN": true},
-		DeniedRegions:    map[string]bool{"BJ": true},
-		AlwaysAllowed:    []string{"127.0.0.1"},
-		AlwaysDenied:     []string{"10.0.0.1"},
-		ContinueOnError:  true,
-		CheckIps:         nil,
-		TransferFunc:     nil,
-		BackendIP:        "127.0.0.1",
-		BackendPort:      "8080",
-		StartTime:        startTime,
-		EndTime:          endTime,
-		StartDate:        startDate,
-		EndDate:          endDate,
-		DaysOfWeek:       days,
+		AllowedCountries:     map[string]bool{"US": true},
+		AllowedRegions:       map[string]bool{"CA": true},
+		DeniedCountries:      map[string]bool{"CN": true},
+		DeniedRegions:        map[string]bool{"BJ": true},
+		AlwaysAllowed:        []string{"127.0.0.1"},
+		AlwaysDenied:         []string{"10.0.0.1"},
+		CheckIps:             nil,
+		TransferFunc:         nil,
+		BackendIP:            "127.0.0.1",
+		BackendPort:          "8080",
+		SendProxyProtocol:    true,
+		ProxyProtocolVersion: 2,
+		StartTime:            startTime,
+		EndTime:              endTime,
+		StartDate:            startDate,
+		EndDate:              endDate,
+		DaysOfWeek:           days,
+		IdleTimeout:          10 * time.Second,
 	}
 
 	h := factory.NewClientHandler()
@@ -63,7 +67,8 @@ func TestHandlerFactoryNewClientHandler(t *testing.T) {
 		assert.Equal(t, factory.DeniedRegions, clientHandler.DeniedRegions)
 		assert.Equal(t, factory.AlwaysAllowed, clientHandler.AlwaysAllowed)
 		assert.Equal(t, factory.AlwaysDenied, clientHandler.AlwaysDenied)
-		assert.Equal(t, factory.ContinueOnError, clientHandler.ContinueOnError)
+		assert.Equal(t, factory.SendProxyProtocol, clientHandler.SendProxyProtocol)
+		assert.Equal(t, factory.ProxyProtocolVersion, clientHandler.ProxyProtocolVersion)
 
 		assert.Equal(t, factory.BackendIP, clientHandler.BackendAddr)
 		assert.Equal(t, factory.BackendPort, clientHandler.BackendPort)
@@ -72,6 +77,7 @@ func TestHandlerFactoryNewClientHandler(t *testing.T) {
 		assert.Equal(t, factory.StartDate, clientHandler.StartDate)
 		assert.Equal(t, factory.EndDate, clientHandler.EndDate)
 		assert.Equal(t, factory.DaysOfWeek, clientHandler.DaysOfWeek)
+		assert.Equal(t, factory.IdleTimeout, clientHandler.IdleTimeout)
 	}
 }
 
@@ -81,15 +87,12 @@ func TestStartServerSendProxyProtocol(t *testing.T) {
 	factory := &captureHandlerFactory{handler: handler}
 
 	s := &ServerConfig{
-		ListenIP:             "127.0.0.1",
-		ListenPort:           "8080",
-		BackendIP:            "127.0.0.1",
-		BackendPort:          "9090",
-		NetListener:          &MockNetListener{},
-		Dialer:               &MockNetDialer{},
-		HandlerFactory:       factory,
-		SendProxyProtocol:    true,
-		ProxyProtocolVersion: 2,
+		ListenIP:       "127.0.0.1",
+		ListenPort:     "8080",
+		BackendIP:      "127.0.0.1",
+		BackendPort:    "9090",
+		NetListener:    &MockNetListener{},
+		HandlerFactory: factory,
 	}
 
 	wg := sync.WaitGroup{}
@@ -102,8 +105,7 @@ func TestStartServerSendProxyProtocol(t *testing.T) {
 
 	select {
 	case header := <-headerCh:
-		assert.NotNil(t, header)
-		assert.Equal(t, byte(2), header.Version)
+		assert.Nil(t, header)
 	case <-time.After(200 * time.Millisecond):
 		t.Fatalf("expected proxy protocol header to be sent")
 	}

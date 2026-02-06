@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"geoproxy/ipapi"
 	"geoproxy/server"
 )
 
@@ -123,13 +124,13 @@ servers:
 	if cfg.TrustedProxies != nil {
 		t.Fatalf("expected trusted proxies to be nil when recvProxyProtocol is false")
 	}
-	if !cfg.SendProxyProtocol || cfg.ProxyProtocolVersion != 2 {
-		t.Fatalf("unexpected proxy protocol settings: send=%v version=%d", cfg.SendProxyProtocol, cfg.ProxyProtocolVersion)
-	}
 
 	factory, ok := cfg.HandlerFactory.(*server.HandlerFactory)
 	if !ok {
 		t.Fatalf("expected HandlerFactory to be *server.HandlerFactory, got %T", cfg.HandlerFactory)
+	}
+	if !factory.SendProxyProtocol || factory.ProxyProtocolVersion != 2 {
+		t.Fatalf("unexpected proxy protocol settings: send=%v version=%d", factory.SendProxyProtocol, factory.ProxyProtocolVersion)
 	}
 	if factory.StartDate.IsZero() || factory.EndDate.IsZero() {
 		t.Fatal("expected start/end dates to be parsed")
@@ -181,6 +182,122 @@ func TestRunWithDaysOfWeek(t *testing.T) {
 	}
 }
 
+func TestRunDefaultIPAPIEndpointFreeAccount(t *testing.T) {
+	path := writeConfig(t, `servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8002"
+    backendIP: "127.0.0.1"
+    backendPort: "9002"
+    allowedCountries: ["US"]
+`)
+
+	capture := &startCapture{}
+	err := run([]string{"-config", path}, runDeps{
+		logger:      log.New(io.Discard, "", 0),
+		flagOutput:  io.Discard,
+		startServer: capture.start,
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	cfg := capture.configs[0]
+	factory, ok := cfg.HandlerFactory.(*server.HandlerFactory)
+	if !ok {
+		t.Fatalf("expected HandlerFactory to be *server.HandlerFactory, got %T", cfg.HandlerFactory)
+	}
+
+	ipCfg, ok := factory.IPApiClient.(*ipapi.GetCountryCodeConfig)
+	if !ok {
+		t.Fatalf("expected IPApiClient to be *ipapi.GetCountryCodeConfig, got %T", factory.IPApiClient)
+	}
+	realClient, ok := ipCfg.HTTPClient.(*ipapi.RealHTTPClient)
+	if !ok {
+		t.Fatalf("expected HTTPClient to be *ipapi.RealHTTPClient, got %T", ipCfg.HTTPClient)
+	}
+	if realClient.Endpoint != "http://ip-api.com/json/" {
+		t.Fatalf("unexpected default endpoint: %q", realClient.Endpoint)
+	}
+}
+
+func TestRunDefaultIPAPIEndpointProAccount(t *testing.T) {
+	path := writeConfig(t, `apiKey: "abc"
+servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8003"
+    backendIP: "127.0.0.1"
+    backendPort: "9003"
+    allowedCountries: ["US"]
+`)
+
+	capture := &startCapture{}
+	err := run([]string{"-config", path}, runDeps{
+		logger:      log.New(io.Discard, "", 0),
+		flagOutput:  io.Discard,
+		startServer: capture.start,
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	cfg := capture.configs[0]
+	factory, ok := cfg.HandlerFactory.(*server.HandlerFactory)
+	if !ok {
+		t.Fatalf("expected HandlerFactory to be *server.HandlerFactory, got %T", cfg.HandlerFactory)
+	}
+
+	ipCfg, ok := factory.IPApiClient.(*ipapi.GetCountryCodeConfig)
+	if !ok {
+		t.Fatalf("expected IPApiClient to be *ipapi.GetCountryCodeConfig, got %T", factory.IPApiClient)
+	}
+	realClient, ok := ipCfg.HTTPClient.(*ipapi.RealHTTPClient)
+	if !ok {
+		t.Fatalf("expected HTTPClient to be *ipapi.RealHTTPClient, got %T", ipCfg.HTTPClient)
+	}
+	if realClient.Endpoint != "https://pro.ip-api.com/json/" {
+		t.Fatalf("unexpected default endpoint: %q", realClient.Endpoint)
+	}
+}
+
+func TestRunRejectsHTTPSIPAPIWithoutAPIKey(t *testing.T) {
+	path := writeConfig(t, `servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8004"
+    backendIP: "127.0.0.1"
+    backendPort: "9004"
+    allowedCountries: ["US"]
+`)
+
+	err := run([]string{"-config", path, "-ipapi", "https://ip-api.com/json/"}, runDeps{
+		logger:      log.New(io.Discard, "", 0),
+		flagOutput:  io.Discard,
+		startServer: (&startCapture{}).start,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestRunRejectsIPAPIOverrideWithAPIKey(t *testing.T) {
+	path := writeConfig(t, `apiKey: "abc"
+servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8005"
+    backendIP: "127.0.0.1"
+    backendPort: "9005"
+    allowedCountries: ["US"]
+`)
+
+	err := run([]string{"-config", path, "-ipapi", "http://127.0.0.1/json/"}, runDeps{
+		logger:      log.New(io.Discard, "", 0),
+		flagOutput:  io.Discard,
+		startServer: (&startCapture{}).start,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
 func TestRunValidationErrors(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -209,6 +326,18 @@ func TestRunValidationErrors(t *testing.T) {
     endDate: "2024-01-01"
 `,
 			wantErr: "start date",
+		},
+		{
+			name: "recv proxy protocol requires trusted proxies",
+			content: `servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8000"
+    backendIP: "127.0.0.1"
+    backendPort: "9000"
+    allowedCountries: ["US"]
+    recvProxyProtocol: true
+`,
+			wantErr: "trustedProxies",
 		},
 	}
 

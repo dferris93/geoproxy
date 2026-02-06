@@ -1,27 +1,18 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 )
 
-type MockMutex struct {
-	TryLockReturn bool
-}
-
-func (m *MockMutex) Lock() {}
-func (m *MockMutex) Unlock() {}
-func (m *MockMutex) TryLock() bool {
-	return m.TryLockReturn
-}
-
 type GetCountryCodeMock struct {
-	ReturnErr bool
+	ReturnErr     bool
 	ReturnCountry string
-	ReturnRegion string
-	ReturnCached string
+	ReturnRegion  string
+	ReturnCached  string
 }
 
-func (g *GetCountryCodeMock) GetCountryCode(ip string) (string, string, string, error) {
+func (g *GetCountryCodeMock) GetCountryCode(_ context.Context, ip string) (string, string, string, error) {
 	if g.ReturnErr {
 		return "", "", "", nil
 	} else {
@@ -29,12 +20,11 @@ func (g *GetCountryCodeMock) GetCountryCode(ip string) (string, string, string, 
 	}
 }
 
-
 type MockCheckIP struct {
 	CheckSubnetsReturn bool
-	CheckIPTypeReturn int
-	CheckIPTypeErr bool
-}	
+	CheckIPTypeReturn  int
+	CheckIPTypeErr     bool
+}
 
 func (m *MockCheckIP) CheckSubnets(subnets []string, ip string) bool {
 	return m.CheckSubnetsReturn
@@ -46,4 +36,3 @@ func (m *MockCheckIP) CheckIPType(ip string) (int, error) {
 	}
 	return m.CheckIPTypeReturn, nil
 }
-

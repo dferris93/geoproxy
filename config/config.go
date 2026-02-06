@@ -59,11 +59,11 @@ func ReadConfig(path string) (*Config, error) {
 
 func validateTrustedProxies(entries []string) error {
 	for _, entry := range entries {
+		if entry == "" {
+			return fmt.Errorf("invalid IP %q", entry)
+		}
 		if strings.Contains(entry, "/") {
-			if _, _, err := net.ParseCIDR(entry); err != nil {
-				return fmt.Errorf("invalid CIDR %q", entry)
-			}
-			continue
+			return fmt.Errorf("CIDRs are not allowed in trustedProxies (got %q); use a plain IPv4/IPv6 address", entry)
 		}
 		if net.ParseIP(entry) == nil {
 			return fmt.Errorf("invalid IP %q", entry)

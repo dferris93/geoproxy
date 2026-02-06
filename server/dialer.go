@@ -1,15 +1,20 @@
 package server
 
 import (
+	"context"
 	"net"
+	"time"
 )
 
-type Dialer interface {
-	Dial(network, address string) (net.Conn, error)
+type RealDialer struct{
+	Timeout time.Duration
 }
 
-type RealDialer struct{}
-
-func (d *RealDialer) Dial(network, address string) (net.Conn, error) {
-	return net.Dial(network, address)
+func (d *RealDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	timeout := d.Timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
+	nd := net.Dialer{Timeout: timeout}
+	return nd.DialContext(ctx, network, address)
 }

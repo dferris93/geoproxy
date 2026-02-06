@@ -1,12 +1,11 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"geoproxy/handler"
 	"geoproxy/mocks"
 	"net"
-
-	"github.com/pires/go-proxyproto"
 )
 
 type MockNetListener struct {
@@ -58,7 +57,7 @@ type MockNetDialer struct {
 	DialError bool
 }
 
-func (m *MockNetDialer) Dial(network, address string) (net.Conn, error) {
+func (m *MockNetDialer) DialContext(_ context.Context, network, address string) (net.Conn, error) {
 	if m.DialError {
 		return nil, fmt.Errorf("Dialer error")
 	} else {
@@ -66,13 +65,12 @@ func (m *MockNetDialer) Dial(network, address string) (net.Conn, error) {
 	}
 }
 
-type MockHandlerFactory struct {}
+type MockHandlerFactory struct{}
 
 func (m *MockHandlerFactory) NewClientHandler() handler.Handler {
 	return &MockClientHandler{}
 }
 
-type MockClientHandler struct {}
+type MockClientHandler struct{}
 
-func (m *MockClientHandler) HandleClient(ClientConn handler.Connection, BackendConn handler.Connection, proxyHeader *proxyproto.Header) {}
-
+func (m *MockClientHandler) HandleClient(_ context.Context, ClientConn handler.Connection) {}

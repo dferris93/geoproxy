@@ -1,19 +1,13 @@
 package handler
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestHandlerMocks(t *testing.T) {
-	mutex := &MockMutex{TryLockReturn: true}
-	if !mutex.TryLock() {
-		t.Fatal("expected TryLock true")
-	}
-	mutex.TryLockReturn = false
-	if mutex.TryLock() {
-		t.Fatal("expected TryLock false")
-	}
-
 	getter := &GetCountryCodeMock{ReturnCountry: "US", ReturnRegion: "CA", ReturnCached: "cached"}
-	country, region, cached, err := getter.GetCountryCode("1.2.3.4")
+	country, region, cached, err := getter.GetCountryCode(context.Background(), "1.2.3.4")
 	if err != nil {
 		t.Fatalf("GetCountryCode: %v", err)
 	}
@@ -22,7 +16,7 @@ func TestHandlerMocks(t *testing.T) {
 	}
 
 	getter.ReturnErr = true
-	_, _, _, err = getter.GetCountryCode("1.2.3.4")
+	_, _, _, err = getter.GetCountryCode(context.Background(), "1.2.3.4")
 	if err != nil {
 		t.Fatalf("expected nil error on ReturnErr path, got %v", err)
 	}

@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2"
@@ -54,11 +57,23 @@ func run(args []string, deps runDeps) error {
 	fs := flag.NewFlagSet("geoproxy", flag.ContinueOnError)
 	fs.SetOutput(deps.flagOutput)
 	configFile := fs.String("config", "geoproxy.yaml", "Path to the configuration file")
-	continueOnError := fs.Bool("continue", false, "allow connections through on ipapi errors")
-	ipapiEndpoint := fs.String("ipapi", "http://ip-api.com/json/", "ipapi endpoint. If you have an API key, change this to https://pro.ip-api.com/json/")
+	ipapiEndpointFlag := fs.String("ipapi", "", "ipapi endpoint override (free accounts only). Defaults to http://ip-api.com/json/ when apiKey is empty. When apiKey is set, the endpoint is forced to https://pro.ip-api.com/json/ and cannot be overridden")
+	ipapiTimeout := fs.Duration("ipapi-timeout", 5*time.Second, "timeout for ipapi HTTP requests (e.g. 5s)")
+	ipapiMaxBytes := fs.Int64("ipapi-max-bytes", 1<<20, "maximum bytes to read from ipapi responses (default 1MiB)")
+	backendDialTimeout := fs.Duration("backend-dial-timeout", 5*time.Second, "timeout for backend TCP dials (e.g. 5s)")
+	idleTimeout := fs.Duration("idle-timeout", 0, "idle timeout for proxied connections (0 disables)")
+	maxConnLifetime := fs.Duration("max-conn-lifetime", 24*time.Hour, "maximum lifetime for a proxied connection (0 disables; e.g. 24h)")
+	maxConns := fs.Int("max-conns", 1024, "maximum concurrent client connections per server (0 disables)")
+	proxyProtoTimeout := fs.Duration("proxyproto-timeout", 1*time.Second, "timeout for receiving HAProxy PROXY protocol headers from trusted proxies (e.g. 1s)")
 	lruSize := fs.Int("lru", 10000, "size of the IP address LRU cache")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if *maxConnLifetime < 0 {
+		return fmt.Errorf("-max-conn-lifetime must be >= 0")
+	}
+	if *proxyProtoTimeout <= 0 {
+		return fmt.Errorf("-proxyproto-timeout must be > 0")
 	}
 
 	cfg, err := config.ReadConfig(*configFile)
@@ -66,10 +81,33 @@ func run(args []string, deps runDeps) error {
 		return fmt.Errorf("failed to read configuration file: %v", err)
 	}
 
+	var ipapiEndpoint string
+	if cfg.APIKey != "" {
+		// Pro accounts must use HTTPS and we don't allow overriding it.
+		if strings.TrimSpace(*ipapiEndpointFlag) != "" {
+			return fmt.Errorf("-ipapi cannot be used when apiKey is set; endpoint is forced to https://pro.ip-api.com/json/")
+		}
+		ipapiEndpoint = "https://pro.ip-api.com/json/"
+	} else {
+		ipapiEndpoint = strings.TrimSpace(*ipapiEndpointFlag)
+		if ipapiEndpoint == "" {
+			ipapiEndpoint = "http://ip-api.com/json/"
+		}
+		if err := validateFreeIPAPIEndpoint(ipapiEndpoint); err != nil {
+			return err
+		}
+	}
+
 	deps.logger.Printf("Starting GeoProxy\n")
 	deps.logger.Printf("Configuration file: %s\n", *configFile)
-	deps.logger.Printf("Continue on error: %v\n", *continueOnError)
-	deps.logger.Printf("IPAPI endpoint: %s\n", *ipapiEndpoint)
+	deps.logger.Printf("IPAPI endpoint: %s\n", ipapiEndpoint)
+	deps.logger.Printf("IPAPI timeout: %s\n", ipapiTimeout.String())
+	deps.logger.Printf("IPAPI max bytes: %d\n", *ipapiMaxBytes)
+	deps.logger.Printf("Backend dial timeout: %s\n", backendDialTimeout.String())
+	deps.logger.Printf("Idle timeout: %s\n", idleTimeout.String())
+	deps.logger.Printf("Max conn lifetime: %s\n", maxConnLifetime.String())
+	deps.logger.Printf("Max conns: %d\n", *maxConns)
+	deps.logger.Printf("Proxy protocol timeout: %s\n", proxyProtoTimeout.String())
 	deps.logger.Printf("LRU cache size: %d\n", *lruSize)
 
 	cache, err := lru.New[string, ipapi.Reply](*lruSize)
@@ -100,6 +138,11 @@ func run(args []string, deps runDeps) error {
 
 		if len(c.AllowedCountries) == 0 && len(c.DeniedCountries) == 0 {
 			return fmt.Errorf("no countries specified for server %s:%s", c.ListenIP, c.ListenPort)
+		}
+		if c.SendProxyProtocol {
+			if c.ProxyProtocolVersion != 1 && c.ProxyProtocolVersion != 2 {
+				return fmt.Errorf("invalid proxyProtocolVersion %d for server %s:%s (expected 1 or 2)", c.ProxyProtocolVersion, c.ListenIP, c.ListenPort)
+			}
 		}
 		if (c.StartDate != "" && c.EndDate == "") || (c.StartDate == "" && c.EndDate != "") {
 			return fmt.Errorf("both startDate and endDate must be set for server %s:%s", c.ListenIP, c.ListenPort)
@@ -139,9 +182,14 @@ func run(args []string, deps runDeps) error {
 				return fmt.Errorf("failed to parse days of week %v: %v", c.DaysOfWeek, err)
 			}
 		}
+		if c.RecvProxyProtocol && len(c.TrustedProxies) == 0 {
+			return fmt.Errorf("recvProxyProtocol is true but trustedProxies is empty for server %s:%s; configure trustedProxies to avoid PROXY protocol spoofing", c.ListenIP, c.ListenPort)
+		}
 	}
 
 	wg := sync.WaitGroup{}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	for _, c := range cfg.Servers {
 		wg.Add(1)
 		deps.logger.Printf("proxy server listening on %s:%s countries: %v regions: %v always allowed: %v always denied: %v",
@@ -189,45 +237,74 @@ func run(args []string, deps runDeps) error {
 			return fmt.Errorf("failed to parse days of week %v: %v", c.DaysOfWeek, err)
 		}
 		s := server.ServerConfig{
-			ListenIP:             c.ListenIP,
-			ListenPort:           c.ListenPort,
-			BackendIP:            c.BackendIP,
-			BackendPort:          c.BackendPort,
-			NetListener:          &server.RealNetListener{},
-			Dialer:               &server.RealDialer{},
-			RecvProxyProtocol:    c.RecvProxyProtocol,
-			SendProxyProtocol:    c.SendProxyProtocol,
-			ProxyProtocolVersion: c.ProxyProtocolVersion,
-			TrustedProxies:       trustedProxies,
+			ListenIP:          c.ListenIP,
+			ListenPort:        c.ListenPort,
+			BackendIP:         c.BackendIP,
+			BackendPort:       c.BackendPort,
+			NetListener:       &server.RealNetListener{},
+			RecvProxyProtocol: c.RecvProxyProtocol,
+			TrustedProxies:    trustedProxies,
+			MaxConns:          *maxConns,
+			ProxyProtoTimeout: *proxyProtoTimeout,
 			HandlerFactory: &server.HandlerFactory{
+				BackendDialer: &server.RealDialer{Timeout: *backendDialTimeout},
 				IPApiClient: &ipapi.GetCountryCodeConfig{
 					HTTPClient: &ipapi.RealHTTPClient{
-						Endpoint: *ipapiEndpoint,
+						Endpoint: ipapiEndpoint,
 						APIKey:   cfg.APIKey,
+						Timeout:  *ipapiTimeout,
 					},
-					Cache: ipapi.IPCache,
+					Cache:            ipapi.IPCache,
+					MaxResponseBytes: *ipapiMaxBytes,
 				},
-				AllowedCountries: common.MakeSet(c.AllowedCountries),
-				AllowedRegions:   common.MakeSet(c.AllowedRegions),
-				DeniedCountries:  common.MakeSet(c.DeniedCountries),
-				DeniedRegions:    common.MakeSet(c.DeniedRegions),
-				AlwaysAllowed:    c.AlwaysAllowed,
-				AlwaysDenied:     c.AlwaysDenied,
-				ContinueOnError:  *continueOnError,
-				CheckIps:         &common.CheckIPs{},
-				TransferFunc:     handler.TransferData,
-				BackendIP:        c.BackendIP,
-				BackendPort:      c.BackendPort,
-				StartTime:        startTime,
-				EndTime:          endTime,
-				StartDate:        startDate,
-				EndDate:          endDate,
-				DaysOfWeek:       daysOfWeek,
+				AllowedCountries:     common.MakeSet(c.AllowedCountries),
+				AllowedRegions:       common.MakeSet(c.AllowedRegions),
+				DeniedCountries:      common.MakeSet(c.DeniedCountries),
+				DeniedRegions:        common.MakeSet(c.DeniedRegions),
+				AlwaysAllowed:        c.AlwaysAllowed,
+				AlwaysDenied:         c.AlwaysDenied,
+				CheckIps:             &common.CheckIPs{},
+				TransferFunc:         handler.TransferData,
+				BackendIP:            c.BackendIP,
+				BackendPort:          c.BackendPort,
+				SendProxyProtocol:    c.SendProxyProtocol,
+				ProxyProtocolVersion: c.ProxyProtocolVersion,
+				MaxConnLifetime:      *maxConnLifetime,
+				StartTime:            startTime,
+				EndTime:              endTime,
+				StartDate:            startDate,
+				EndDate:              endDate,
+				DaysOfWeek:           daysOfWeek,
+				IdleTimeout:          *idleTimeout,
 			},
 		}
-		deps.startServer(s, &wg, context.Background())
+		deps.startServer(s, &wg, ctx)
 	}
 	wg.Wait()
+	return nil
+}
+
+func validateFreeIPAPIEndpoint(endpoint string) error {
+	// Operator-provided override should still be a sane HTTP URL.
+	// (Free ip-api is HTTP-only.)
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid ipapi endpoint %q: %v", endpoint, err)
+	}
+	scheme := strings.ToLower(strings.TrimSpace(u.Scheme))
+	if scheme == "https" {
+		return fmt.Errorf("ipapi endpoint %q uses https but apiKey is empty; free ip-api does not support SSL", endpoint)
+	}
+	if scheme != "http" && scheme != "" {
+		return fmt.Errorf("invalid ipapi endpoint %q: scheme must be http", endpoint)
+	}
+	if u.User != nil {
+		return fmt.Errorf("invalid ipapi endpoint %q: userinfo not allowed", endpoint)
+	}
+	if strings.TrimSpace(u.Host) == "" {
+		// url.Parse treats "http://..." as having Host; bare hosts can end up in Path.
+		return fmt.Errorf("invalid ipapi endpoint %q: missing host", endpoint)
+	}
 	return nil
 }
 
