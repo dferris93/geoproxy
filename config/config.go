@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -62,7 +61,7 @@ func validateTrustedProxies(entries []string) error {
 		if entry == "" {
 			return fmt.Errorf("invalid IP %q", entry)
 		}
-		if strings.Contains(entry, "/") {
+		if _, _, err := net.ParseCIDR(entry); err == nil {
 			return fmt.Errorf("CIDRs are not allowed in trustedProxies (got %q); use a plain IPv4/IPv6 address", entry)
 		}
 		if net.ParseIP(entry) == nil {

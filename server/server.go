@@ -8,7 +8,6 @@ import (
 	"geoproxy/ipapi"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -168,7 +167,6 @@ func (s *ServerConfig) StartServer(wg *sync.WaitGroup, ctx context.Context) {
 		// Do not log clientConn.RemoteAddr() here when recvProxyProtocol is enabled:
 		// proxyproto.Conn.RemoteAddr() will attempt to read the PROXY header and can
 		// block this accept loop (slowloris/DoS).
-		log.Printf("accepted inbound connection to %s", listenAddr)
 
 		handler := s.HandlerFactory.NewClientHandler()
 		go func() {
@@ -213,7 +211,7 @@ func compileTrustedProxies(entries []string) (func(net.IP) bool, error) {
 		if entry == "" {
 			continue
 		}
-		if strings.Contains(entry, "/") {
+		if _, _, err := net.ParseCIDR(entry); err == nil {
 			return nil, fmt.Errorf("CIDRs are not allowed in trustedProxies (got %q)", entry)
 		}
 		ip := net.ParseIP(entry)

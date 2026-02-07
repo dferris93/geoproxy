@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"time"
 )
 
@@ -30,25 +29,27 @@ func (c *CheckIPs) CheckIPType(ip string) (int, error) {
 }
 
 func (c *CheckIPs) CheckSubnets(subnets []string, clientAddr string) bool {
+	clientIP := net.ParseIP(clientAddr)
+	if clientIP == nil {
+		log.Printf("Failed to parse client IP %q", clientAddr)
+		return false
+	}
+
 	for _, ip := range subnets {
-		if !strings.Contains(ip, "/") {
-			ipType, err := c.CheckIPType(ip)
-			if err != nil {
-				log.Printf("Failed to check IP type: %v", err)
-				continue
+		if _, subnet, err := net.ParseCIDR(ip); err == nil {
+			if subnet.Contains(clientIP) {
+				return true
 			}
-			if ipType == 4 {
-				ip += "/32"
-			} else {
-				ip += "/128"
-			}
-		}
-		_, subnet, err := net.ParseCIDR(ip)
-		if err != nil {
-			log.Printf("Failed to parse CIDR: %v", err)
 			continue
 		}
-		if subnet.Contains(net.ParseIP(clientAddr)) {
+
+		// Not a CIDR, try as a plain IP.
+		entryIP := net.ParseIP(ip)
+		if entryIP == nil {
+			log.Printf("Failed to parse IP/CIDR entry %q", ip)
+			continue
+		}
+		if entryIP.Equal(clientIP) {
 			return true
 		}
 	}
