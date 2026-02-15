@@ -2,7 +2,7 @@
 
 Geoproxy is a TCP only proxy that uses the free ip-api.com json api to accept or block connections to specified backends based on IP Geolocation data.
 
-Responses from ip-api.com are cached in RAM to try to cut down on requests as much as possible. The cache is set to 10K entries by default and when it fills up, it will use an LRU algorithm to delete older entries.
+Responses from ip-api.com are cached in RAM to try to cut down on requests as much as possible. Successful entries expire after 24 hours. The cache is set to 10K entries by default and when it fills up, it will use an LRU algorithm to delete older entries.
 
 I have recently added Proxy Protocol support so you can preserve the source IP to things that support proxy protocol.
 Note: iptables/ip6tables blocking has been removed; rejected connections are simply closed by the proxy.

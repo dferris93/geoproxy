@@ -104,7 +104,11 @@ func TestGetCountryCodeCacheHit(t *testing.T) {
 	tempCache := newTestCache(t, 16)
 	IPCache = tempCache // Set the global cache for this test
 
-	tempCache.Add("1.2.3.4", Reply{CountryCode: "US", Region: "CA"})
+	tempCache.Add("1.2.3.4", Reply{
+		CountryCode: "US",
+		Region:      "CA",
+		ExpiresAt:   time.Now().Add(time.Hour),
+	})
 	client := &mockHTTPClient{
 		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"DE","region":"BE","status":"success"}`), nil
@@ -149,7 +153,11 @@ func TestGetCountryCodeCacheEvicted(t *testing.T) {
 	tempCache := newTestCache(t, 1)
 	IPCache = tempCache // Set the global cache for this test
 
-	tempCache.Add("1.2.3.4", Reply{CountryCode: "US", Region: "CA"})
+	tempCache.Add("1.2.3.4", Reply{
+		CountryCode: "US",
+		Region:      "CA",
+		ExpiresAt:   time.Now().Add(time.Hour),
+	})
 	client := &mockHTTPClient{
 		getFunc: func(_ context.Context, url string) (*http.Response, error) {
 			return responseWithBody(`{"countryCode":"DE","region":"BE","status":"success"}`), nil
@@ -169,6 +177,37 @@ func TestGetCountryCodeCacheEvicted(t *testing.T) {
 	cached, found := tempCache.Get("5.6.7.8")
 	assert.True(t, found)
 	assert.Equal(t, "DE", cached.CountryCode)
+}
+
+func TestGetCountryCodeExpiredSuccessCacheRefreshes(t *testing.T) {
+	tempCache := newTestCache(t, 16)
+	IPCache = tempCache
+
+	tempCache.Add("1.2.3.4", Reply{
+		CountryCode: "US",
+		Region:      "CA",
+		ExpiresAt:   time.Now().Add(-time.Minute),
+	})
+	client := &mockHTTPClient{
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
+			return responseWithBody(`{"countryCode":"DE","region":"BE","status":"success"}`), nil
+		},
+	}
+	cfg := &GetCountryCodeConfig{HTTPClient: client}
+
+	country, region, cacheMarker, err := cfg.GetCountryCode(context.Background(), "1.2.3.4")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "DE", country)
+	assert.Equal(t, "BE", region)
+	assert.Equal(t, "-", cacheMarker)
+	assert.Equal(t, 1, client.calls)
+
+	cached, found := tempCache.Get("1.2.3.4")
+	assert.True(t, found)
+	assert.Equal(t, "DE", cached.CountryCode)
+	assert.False(t, cached.ExpiresAt.IsZero())
+	assert.True(t, cached.ExpiresAt.After(time.Now()))
 }
 
 func TestGetCountryCodeCacheMissError(t *testing.T) {

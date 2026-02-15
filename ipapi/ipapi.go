@@ -21,7 +21,11 @@ type Reply struct {
 	CountryCode  string
 	Region       string
 	FailureUntil time.Time
+	ExpiresAt    time.Time
 }
+
+const successCacheTTL = 24 * time.Hour
+
 type GetCountryCodeConfig struct {
 	HTTPClient       HTTPClient
 	Cache            *lru.Cache[string, Reply]
@@ -42,7 +46,12 @@ func (g *GetCountryCodeConfig) GetCountryCode(ctx context.Context, ip string) (s
 				}
 				cache.Remove(ip)
 			} else {
-				return reply.CountryCode, reply.Region, "cached", nil
+				// Successful cache entries are valid for 24 hours.
+				if reply.ExpiresAt.IsZero() || time.Now().After(reply.ExpiresAt) {
+					cache.Remove(ip)
+				} else {
+					return reply.CountryCode, reply.Region, "cached", nil
+				}
 			}
 		}
 	}
@@ -55,7 +64,11 @@ func (g *GetCountryCodeConfig) GetCountryCode(ctx context.Context, ip string) (s
 		return "", "", "-", err
 	}
 	if cache != nil {
-		cache.Add(ip, Reply{CountryCode: countryCode, Region: region})
+		cache.Add(ip, Reply{
+			CountryCode: countryCode,
+			Region:      region,
+			ExpiresAt:   time.Now().Add(successCacheTTL),
+		})
 	}
 	return countryCode, region, "-", nil
 }
