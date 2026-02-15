@@ -359,3 +359,35 @@ func TestRunValidationErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestRunDefaultTimeouts(t *testing.T) {
+	path := writeConfig(t, `servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8010"
+    backendIP: "127.0.0.1"
+    backendPort: "9010"
+    allowedCountries: ["US"]
+`)
+	capture := &startCapture{}
+	err := run([]string{"-config", path}, runDeps{
+		logger:      log.New(io.Discard, "", 0),
+		flagOutput:  io.Discard,
+		startServer: capture.start,
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if capture.calls != 1 {
+		t.Fatalf("expected 1 startServer call, got %d", capture.calls)
+	}
+	factory, ok := capture.configs[0].HandlerFactory.(*server.HandlerFactory)
+	if !ok {
+		t.Fatalf("expected HandlerFactory to be *server.HandlerFactory, got %T", capture.configs[0].HandlerFactory)
+	}
+	if factory.IdleTimeout != 60*time.Second {
+		t.Fatalf("expected idle timeout 60s, got %s", factory.IdleTimeout)
+	}
+	if factory.MaxConnLifetime != 2*time.Hour {
+		t.Fatalf("expected max conn lifetime 2h, got %s", factory.MaxConnLifetime)
+	}
+}

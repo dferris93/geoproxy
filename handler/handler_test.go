@@ -201,7 +201,7 @@ func TestHandler(t *testing.T) {
 		fmt.Println("TestAllowedRegions")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{"CN": true},
-			AllowedRegions:   map[string]bool{"Beijing": true},
+			AllowedRegions:   map[string]bool{"BEIJING": true},
 			DeniedCountries:  map[string]bool{},
 			DeniedRegions:    map[string]bool{},
 			AlwaysAllowed:    []string{},
@@ -219,13 +219,35 @@ func TestHandler(t *testing.T) {
 		h.HandleClient(context.Background(), &ClientConn)
 		assert.Equal(t, true, h.accepted)
 	})
+	t.Run("TestCountryAndRegionCaseInsensitive", func(t *testing.T) {
+		fmt.Println("TestCountryAndRegionCaseInsensitive")
+		h := ClientHandler{
+			AllowedCountries: map[string]bool{"CN": true},
+			AllowedRegions:   map[string]bool{"BEIJING": true},
+			DeniedCountries:  map[string]bool{},
+			DeniedRegions:    map[string]bool{},
+			AlwaysAllowed:    []string{},
+			AlwaysDenied:     []string{},
+
+			IPApiClient: &GetCountryCodeMock{ReturnCountry: "cn", ReturnRegion: "beijing"},
+
+			CheckIps:      &common.CheckIPs{},
+			TransferFunc:  TransferFuncMock,
+			BackendDialer: &staticDialer{conn: &mocks.MockNetConn{IPVersion: 4}},
+			BackendAddr:   "127.0.0.1",
+			BackendPort:   "8080",
+		}
+		ClientConn := mocks.MockNetConn{IPVersion: 4}
+		h.HandleClient(context.Background(), &ClientConn)
+		assert.Equal(t, true, h.accepted)
+	})
 	t.Run("TestDeniedRegions", func(t *testing.T) {
 		fmt.Println("TestDeniedRegions")
 		h := ClientHandler{
 			AllowedCountries: map[string]bool{"CN": true},
 			AllowedRegions:   map[string]bool{},
 			DeniedCountries:  map[string]bool{},
-			DeniedRegions:    map[string]bool{"Beijing": true},
+			DeniedRegions:    map[string]bool{"BEIJING": true},
 			AlwaysAllowed:    []string{},
 			AlwaysDenied:     []string{},
 

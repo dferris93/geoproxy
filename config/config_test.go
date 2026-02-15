@@ -60,6 +60,66 @@ func TestReadConfigInvalidYAML(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestReadConfigRejectsUnknownFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := []byte(`servers:
+  - listenIp: "127.0.0.1"
+    listenPort: "8080"
+    backendIP: "10.0.0.1"
+    backendPort: "9090"
+    allowedCountries: ["US"]
+`)
+	err := os.WriteFile(path, content, 0o600)
+	assert.NoError(t, err)
+
+	_, err = ReadConfig(path)
+	assert.Error(t, err)
+}
+
+func TestReadConfigValidatesAlwaysLists(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name: "invalid alwaysAllowed",
+			content: `servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8080"
+    backendIP: "10.0.0.1"
+    backendPort: "9090"
+    allowedCountries: ["US"]
+    alwaysAllowed: ["not-an-ip"]
+`,
+		},
+		{
+			name: "invalid alwaysDenied",
+			content: `servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8080"
+    backendIP: "10.0.0.1"
+    backendPort: "9090"
+    allowedCountries: ["US"]
+    alwaysDenied: ["10.0.0.0/33"]
+`,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "config.yaml")
+			err := os.WriteFile(path, []byte(tc.content), 0o600)
+			assert.NoError(t, err)
+
+			_, err = ReadConfig(path)
+			assert.Error(t, err)
+		})
+	}
+}
+
 func TestValidateTrustedProxies(t *testing.T) {
 	tests := []struct {
 		name    string

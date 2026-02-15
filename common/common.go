@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -60,6 +61,18 @@ func MakeSet(s []string) map[string]bool {
 	set := make(map[string]bool)
 	for _, item := range s {
 		set[item] = true
+	}
+	return set
+}
+
+func MakeNormalizedUpperSet(s []string) map[string]bool {
+	set := make(map[string]bool)
+	for _, item := range s {
+		normalized := strings.ToUpper(strings.TrimSpace(item))
+		if normalized == "" {
+			continue
+		}
+		set[normalized] = true
 	}
 	return set
 }

@@ -146,22 +146,24 @@ func (h *ClientHandler) HandleClient(ctx context.Context, ClientConn Connection)
 		h.processConnection(ctx)
 		return
 	}
+	normalizedCountry := strings.ToUpper(strings.TrimSpace(h.countryCode))
+	normalizedRegion := strings.ToUpper(strings.TrimSpace(h.region))
 
 	countryAccepted := false
 	regionAccepted := true
 
-	if _, ok := h.DeniedCountries[h.countryCode]; ok {
+	if _, ok := h.DeniedCountries[normalizedCountry]; ok {
 		countryAccepted = false
 	} else {
-		if _, ok := h.AllowedCountries[h.countryCode]; ok {
+		if _, ok := h.AllowedCountries[normalizedCountry]; ok {
 			countryAccepted = true
 			if len(h.DeniedRegions) > 0 {
-				if _, ok := h.DeniedRegions[h.region]; ok {
+				if _, ok := h.DeniedRegions[normalizedRegion]; ok {
 					regionAccepted = false
 				}
 			} else {
 				if len(h.AllowedRegions) > 0 {
-					if _, ok := h.AllowedRegions[h.region]; !ok {
+					if _, ok := h.AllowedRegions[normalizedRegion]; !ok {
 						regionAccepted = false
 					}
 				}

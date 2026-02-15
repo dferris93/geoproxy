@@ -11,6 +11,14 @@ Note: iptables/ip6tables blocking has been removed; rejected connections are sim
 
 If you enable `recvProxyProtocol`, you **must** configure `trustedProxies` as a YAML list of plain IPv4/IPv6 addresses (no CIDRs) and ensure only those proxy IPs can connect. GeoProxy will reject non-trusted upstreams and will require trusted upstreams to send a PROXY header. If you trust PROXY headers from untrusted sources, clients can spoof their source IP and bypass geo rules or inject fake client addresses into backends.
 
+# Security Notes (Config Validation)
+
+GeoProxy uses strict YAML decoding for configuration. Unknown or misspelled fields are rejected at startup.
+
+`alwaysAllowed` and `alwaysDenied` entries must be valid IPs or CIDRs. Invalid entries are rejected at startup.
+
+Country and region rule matching is normalized (`trim + uppercase`) on both config values and ip-api replies, so matching is case-insensitive.
+
 # Installation
 
 git clone this repository and run go build.  You'll want to set up a systemd unit file to start/stop/restart on errors.
@@ -28,9 +36,9 @@ Usage of ./geoproxy:
   -backend-dial-timeout duration
     	timeout for backend TCP dials (e.g. 5s) (default 5s)
   -idle-timeout duration
-    	idle timeout for proxied connections (0 disables) (default 0s)
+    	idle timeout for proxied connections (0 disables) (default 1m0s)
   -max-conn-lifetime duration
-    	maximum lifetime for a proxied connection (0 disables; e.g. 24h) (default 24h0m0s)
+    	maximum lifetime for a proxied connection (0 disables; e.g. 24h) (default 2h0m0s)
   -max-conns int
     	maximum concurrent client connections per server (0 disables) (default 1024)
   -proxyproto-timeout duration
@@ -60,8 +68,8 @@ servers:
       - "US"
     allowedRegions:
       - "CA"
-  - listenIp: "0.0.0.0"
-    listenPOrt: "443"
+  - listenIP: "0.0.0.0"
+    listenPort: "443"
     backendIP: "192.168.5.2"
     backendPort: "443"
     deniedCountries:
@@ -75,6 +83,7 @@ servers:
 
 Note: `daysOfWeek` cannot be combined with `startDate`/`endDate` in the same server block.
 Note: when `recvProxyProtocol` is true, `trustedProxies` is required and GeoProxy will reject non-trusted upstreams. `trustedProxies` must be a list of plain IPs (no CIDRs). `trustedProxies` are ignored when `recvProxyProtocol` is false.
+Note: configuration keys are strict and case-sensitive. For example, use `listenIP` and `listenPort`.
 
 # Limitations
 
@@ -84,7 +93,6 @@ Note: when `recvProxyProtocol` is true, `trustedProxies` is required and GeoProx
 * I use Accept for TCP connections, so there are likely scaling limits.
 * I don't fork anything and this doesn't run as a daemon.  That can be a problem if you don't like running as root for ports under 1024.
 * I think IPv6 works ok, but I don't have IPv6 currently to test it out.
-* I'm an ok Go dev, but if you know how to do something better, let me know.
 * No udp support currently.  The only UDP things I care about either need to be locked to specific IPs, or need to run wide open.
 
 # Testing

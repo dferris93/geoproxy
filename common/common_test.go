@@ -45,6 +45,14 @@ func TestMakeSetAndSubtractSet(t *testing.T) {
 	assert.False(t, remaining["b"])
 }
 
+func TestMakeNormalizedUpperSet(t *testing.T) {
+	set := MakeNormalizedUpperSet([]string{" us ", "ca", "CA", "", "  "})
+	assert.True(t, set["US"])
+	assert.True(t, set["CA"])
+	assert.False(t, set[""])
+	assert.Len(t, set, 2)
+}
+
 func TestCheckTime(t *testing.T) {
 	location := time.UTC
 	start := time.Date(2024, time.January, 1, 9, 0, 0, 0, location)

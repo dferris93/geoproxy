@@ -61,8 +61,8 @@ func run(args []string, deps runDeps) error {
 	ipapiTimeout := fs.Duration("ipapi-timeout", 5*time.Second, "timeout for ipapi HTTP requests (e.g. 5s)")
 	ipapiMaxBytes := fs.Int64("ipapi-max-bytes", 1<<20, "maximum bytes to read from ipapi responses (default 1MiB)")
 	backendDialTimeout := fs.Duration("backend-dial-timeout", 5*time.Second, "timeout for backend TCP dials (e.g. 5s)")
-	idleTimeout := fs.Duration("idle-timeout", 0, "idle timeout for proxied connections (0 disables)")
-	maxConnLifetime := fs.Duration("max-conn-lifetime", 24*time.Hour, "maximum lifetime for a proxied connection (0 disables; e.g. 24h)")
+	idleTimeout := fs.Duration("idle-timeout", 60*time.Second, "idle timeout for proxied connections (0 disables)")
+	maxConnLifetime := fs.Duration("max-conn-lifetime", 2*time.Hour, "maximum lifetime for a proxied connection (0 disables; e.g. 24h)")
 	maxConns := fs.Int("max-conns", 1024, "maximum concurrent client connections per server (0 disables)")
 	proxyProtoTimeout := fs.Duration("proxyproto-timeout", 1*time.Second, "timeout for receiving HAProxy PROXY protocol headers from trusted proxies (e.g. 1s)")
 	lruSize := fs.Int("lru", 10000, "size of the IP address LRU cache")
@@ -257,10 +257,10 @@ func run(args []string, deps runDeps) error {
 					Cache:            ipapi.IPCache,
 					MaxResponseBytes: *ipapiMaxBytes,
 				},
-				AllowedCountries:     common.MakeSet(c.AllowedCountries),
-				AllowedRegions:       common.MakeSet(c.AllowedRegions),
-				DeniedCountries:      common.MakeSet(c.DeniedCountries),
-				DeniedRegions:        common.MakeSet(c.DeniedRegions),
+				AllowedCountries:     common.MakeNormalizedUpperSet(c.AllowedCountries),
+				AllowedRegions:       common.MakeNormalizedUpperSet(c.AllowedRegions),
+				DeniedCountries:      common.MakeNormalizedUpperSet(c.DeniedCountries),
+				DeniedRegions:        common.MakeNormalizedUpperSet(c.DeniedRegions),
 				AlwaysAllowed:        c.AlwaysAllowed,
 				AlwaysDenied:         c.AlwaysDenied,
 				CheckIps:             &common.CheckIPs{},

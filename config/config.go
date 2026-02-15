@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -42,7 +43,7 @@ func ReadConfig(path string) (*Config, error) {
 	}
 
 	var config Config
-	err = yaml.Unmarshal(data, &config)
+	err = yaml.UnmarshalStrict(data, &config)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +51,12 @@ func ReadConfig(path string) (*Config, error) {
 	for i, server := range config.Servers {
 		if err := validateTrustedProxies(server.TrustedProxies); err != nil {
 			return nil, fmt.Errorf("server %d trustedProxies: %w", i, err)
+		}
+		if err := validateIPOrCIDREntries(server.AlwaysAllowed); err != nil {
+			return nil, fmt.Errorf("server %d alwaysAllowed: %w", i, err)
+		}
+		if err := validateIPOrCIDREntries(server.AlwaysDenied); err != nil {
+			return nil, fmt.Errorf("server %d alwaysDenied: %w", i, err)
 		}
 	}
 
@@ -67,6 +74,23 @@ func validateTrustedProxies(entries []string) error {
 		if net.ParseIP(entry) == nil {
 			return fmt.Errorf("invalid IP %q", entry)
 		}
+	}
+	return nil
+}
+
+func validateIPOrCIDREntries(entries []string) error {
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			return fmt.Errorf("invalid IP/CIDR %q", entry)
+		}
+		if net.ParseIP(entry) != nil {
+			continue
+		}
+		if _, _, err := net.ParseCIDR(entry); err == nil {
+			continue
+		}
+		return fmt.Errorf("invalid IP/CIDR %q", entry)
 	}
 	return nil
 }
