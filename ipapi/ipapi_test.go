@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/golang-lru/v2"
 	"github.com/stretchr/testify/assert"
@@ -188,4 +189,52 @@ func TestGetCountryCodeCacheMissError(t *testing.T) {
 	assert.Equal(t, "-", cacheMarker)
 	_, found := tempCache.Get("1.2.3.4")
 	assert.False(t, found) // Should not cache on error
+}
+
+func TestGetCountryCodeCachesFailuresWithTTL(t *testing.T) {
+	tempCache := newTestCache(t, 16)
+	client := &mockHTTPClient{
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
+			return nil, errors.New("boom")
+		},
+	}
+	cfg := &GetCountryCodeConfig{
+		HTTPClient: client,
+		Cache:      tempCache,
+		FailureTTL: time.Minute,
+	}
+
+	_, _, marker, err := cfg.GetCountryCode(context.Background(), "1.2.3.4")
+	assert.Error(t, err)
+	assert.Equal(t, "-", marker)
+	assert.Equal(t, 1, client.calls)
+
+	_, _, marker, err = cfg.GetCountryCode(context.Background(), "1.2.3.4")
+	assert.Error(t, err)
+	assert.Equal(t, "cached-failure", marker)
+	assert.Equal(t, 1, client.calls)
+}
+
+func TestGetCountryCodeExpiredFailureCacheRetries(t *testing.T) {
+	tempCache := newTestCache(t, 16)
+	client := &mockHTTPClient{
+		getFunc: func(_ context.Context, url string) (*http.Response, error) {
+			return nil, errors.New("boom")
+		},
+	}
+	cfg := &GetCountryCodeConfig{
+		HTTPClient: client,
+		Cache:      tempCache,
+		FailureTTL: 2 * time.Millisecond,
+	}
+
+	_, _, _, err := cfg.GetCountryCode(context.Background(), "1.2.3.4")
+	assert.Error(t, err)
+	assert.Equal(t, 1, client.calls)
+
+	time.Sleep(5 * time.Millisecond)
+
+	_, _, _, err = cfg.GetCountryCode(context.Background(), "1.2.3.4")
+	assert.Error(t, err)
+	assert.Equal(t, 2, client.calls)
 }

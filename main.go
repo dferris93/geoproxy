@@ -60,10 +60,12 @@ func run(args []string, deps runDeps) error {
 	ipapiEndpointFlag := fs.String("ipapi", "", "ipapi endpoint override (free accounts only). Defaults to http://ip-api.com/json/ when apiKey is empty. When apiKey is set, the endpoint is forced to https://pro.ip-api.com/json/ and cannot be overridden")
 	ipapiTimeout := fs.Duration("ipapi-timeout", 5*time.Second, "timeout for ipapi HTTP requests (e.g. 5s)")
 	ipapiMaxBytes := fs.Int64("ipapi-max-bytes", 1<<20, "maximum bytes to read from ipapi responses (default 1MiB)")
+	ipapiFailureTTL := fs.Duration("ipapi-failure-ttl", 30*time.Second, "duration to cache ipapi lookup failures per IP (0 disables)")
 	backendDialTimeout := fs.Duration("backend-dial-timeout", 5*time.Second, "timeout for backend TCP dials (e.g. 5s)")
 	idleTimeout := fs.Duration("idle-timeout", 60*time.Second, "idle timeout for proxied connections (0 disables)")
 	maxConnLifetime := fs.Duration("max-conn-lifetime", 2*time.Hour, "maximum lifetime for a proxied connection (0 disables; e.g. 24h)")
 	maxConns := fs.Int("max-conns", 1024, "maximum concurrent client connections per server (0 disables)")
+	maxConnsPerIP := fs.Int("max-conns-per-ip", 10, "maximum concurrent client connections per source IP per server (0 disables)")
 	proxyProtoTimeout := fs.Duration("proxyproto-timeout", 1*time.Second, "timeout for receiving HAProxy PROXY protocol headers from trusted proxies (e.g. 1s)")
 	lruSize := fs.Int("lru", 10000, "size of the IP address LRU cache")
 	if err := fs.Parse(args); err != nil {
@@ -74,6 +76,12 @@ func run(args []string, deps runDeps) error {
 	}
 	if *proxyProtoTimeout <= 0 {
 		return fmt.Errorf("-proxyproto-timeout must be > 0")
+	}
+	if *maxConnsPerIP < 0 {
+		return fmt.Errorf("-max-conns-per-ip must be >= 0")
+	}
+	if *ipapiFailureTTL < 0 {
+		return fmt.Errorf("-ipapi-failure-ttl must be >= 0")
 	}
 
 	cfg, err := config.ReadConfig(*configFile)
@@ -103,10 +111,12 @@ func run(args []string, deps runDeps) error {
 	deps.logger.Printf("IPAPI endpoint: %s\n", ipapiEndpoint)
 	deps.logger.Printf("IPAPI timeout: %s\n", ipapiTimeout.String())
 	deps.logger.Printf("IPAPI max bytes: %d\n", *ipapiMaxBytes)
+	deps.logger.Printf("IPAPI failure TTL: %s\n", ipapiFailureTTL.String())
 	deps.logger.Printf("Backend dial timeout: %s\n", backendDialTimeout.String())
 	deps.logger.Printf("Idle timeout: %s\n", idleTimeout.String())
 	deps.logger.Printf("Max conn lifetime: %s\n", maxConnLifetime.String())
 	deps.logger.Printf("Max conns: %d\n", *maxConns)
+	deps.logger.Printf("Max conns per IP: %d\n", *maxConnsPerIP)
 	deps.logger.Printf("Proxy protocol timeout: %s\n", proxyProtoTimeout.String())
 	deps.logger.Printf("LRU cache size: %d\n", *lruSize)
 
@@ -256,6 +266,7 @@ func run(args []string, deps runDeps) error {
 					},
 					Cache:            ipapi.IPCache,
 					MaxResponseBytes: *ipapiMaxBytes,
+					FailureTTL:       *ipapiFailureTTL,
 				},
 				AllowedCountries:     common.MakeNormalizedUpperSet(c.AllowedCountries),
 				AllowedRegions:       common.MakeNormalizedUpperSet(c.AllowedRegions),
@@ -276,6 +287,7 @@ func run(args []string, deps runDeps) error {
 				EndDate:              endDate,
 				DaysOfWeek:           daysOfWeek,
 				IdleTimeout:          *idleTimeout,
+				ConnLimiter:          handler.NewPerIPConnLimiter(*maxConnsPerIP),
 			},
 		}
 		deps.startServer(s, &wg, ctx)
@@ -295,7 +307,7 @@ func validateFreeIPAPIEndpoint(endpoint string) error {
 	if scheme == "https" {
 		return fmt.Errorf("ipapi endpoint %q uses https but apiKey is empty; free ip-api does not support SSL", endpoint)
 	}
-	if scheme != "http" && scheme != "" {
+	if scheme != "http" {
 		return fmt.Errorf("invalid ipapi endpoint %q: scheme must be http", endpoint)
 	}
 	if u.User != nil {

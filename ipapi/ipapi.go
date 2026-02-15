@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"time"
 
 	"github.com/hashicorp/golang-lru/v2"
 )
@@ -17,13 +18,15 @@ type IPAPI interface {
 }
 
 type Reply struct {
-	CountryCode string
-	Region      string
+	CountryCode  string
+	Region       string
+	FailureUntil time.Time
 }
 type GetCountryCodeConfig struct {
 	HTTPClient       HTTPClient
 	Cache            *lru.Cache[string, Reply]
 	MaxResponseBytes int64
+	FailureTTL       time.Duration
 }
 
 func (g *GetCountryCodeConfig) GetCountryCode(ctx context.Context, ip string) (string, string, string, error) {
@@ -33,12 +36,22 @@ func (g *GetCountryCodeConfig) GetCountryCode(ctx context.Context, ip string) (s
 	}
 	if cache != nil {
 		if reply, found := cache.Get(ip); found {
-			return reply.CountryCode, reply.Region, "cached", nil
+			if !reply.FailureUntil.IsZero() {
+				if time.Now().Before(reply.FailureUntil) {
+					return "", "", "cached-failure", fmt.Errorf("cached ipapi lookup failure for ip: %s", ip)
+				}
+				cache.Remove(ip)
+			} else {
+				return reply.CountryCode, reply.Region, "cached", nil
+			}
 		}
 	}
 	ipAPIConfig := &IPAPIConfig{HTTPClient: g.HTTPClient, MaxResponseBytes: g.MaxResponseBytes}
 	countryCode, region, err := ipAPIConfig.getIpAPI(ctx, ip)
 	if err != nil {
+		if cache != nil && g.FailureTTL > 0 {
+			cache.Add(ip, Reply{FailureUntil: time.Now().Add(g.FailureTTL)})
+		}
 		return "", "", "-", err
 	}
 	if cache != nil {

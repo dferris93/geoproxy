@@ -16,8 +16,10 @@ If you enable `recvProxyProtocol`, you **must** configure `trustedProxies` as a 
 GeoProxy uses strict YAML decoding for configuration. Unknown or misspelled fields are rejected at startup.
 
 `alwaysAllowed` and `alwaysDenied` entries must be valid IPs or CIDRs. Invalid entries are rejected at startup.
+Entries in `alwaysAllowed` and `alwaysDenied` are trimmed during config load.
 
 Country and region rule matching is normalized (`trim + uppercase`) on both config values and ip-api replies, so matching is case-insensitive.
+When `apiKey` is set, GeoProxy sends the key in the `X-API-Key` header (not query string).
 
 # Installation
 
@@ -33,6 +35,8 @@ Usage of ./geoproxy:
     	timeout for ipapi HTTP requests (e.g. 5s) (default 5s)
   -ipapi-max-bytes int
     	maximum bytes to read from ipapi responses (default 1MiB) (default 1048576)
+  -ipapi-failure-ttl duration
+    	duration to cache ipapi lookup failures per IP (0 disables) (default 30s)
   -backend-dial-timeout duration
     	timeout for backend TCP dials (e.g. 5s) (default 5s)
   -idle-timeout duration
@@ -41,6 +45,8 @@ Usage of ./geoproxy:
     	maximum lifetime for a proxied connection (0 disables; e.g. 24h) (default 2h0m0s)
   -max-conns int
     	maximum concurrent client connections per server (0 disables) (default 1024)
+  -max-conns-per-ip int
+    	maximum concurrent client connections per source IP per server (0 disables) (default 10)
   -proxyproto-timeout duration
     	timeout for receiving HAProxy PROXY protocol headers from trusted proxies (e.g. 1s) (default 1s)
   -ipapi string

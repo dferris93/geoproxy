@@ -42,9 +42,6 @@ func (r *RealHTTPClient) buildURL(ip string) (string, error) {
 	base.Path = strings.TrimRight(base.Path, "/") + "/" + ip
 
 	q := base.Query()
-	if r.APIKey != "" {
-		q.Set("key", r.APIKey)
-	}
 	// Always request only the fields we actually use.
 	q.Set("fields", "countryCode,region,status")
 	base.RawQuery = q.Encode()
@@ -61,6 +58,9 @@ func (r *RealHTTPClient) Get(ctx context.Context, ip string) (*http.Response, er
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return nil, err
+	}
+	if r.APIKey != "" {
+		req.Header.Set("X-API-Key", r.APIKey)
 	}
 	return r.httpClient().Do(req)
 }

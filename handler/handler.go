@@ -48,6 +48,7 @@ type ClientHandler struct {
 	Now                  time.Time
 	DeniedReason         string
 	IdleTimeout          time.Duration
+	ConnLimiter          ConnLimiter
 }
 
 func (h *ClientHandler) HandleClient(ctx context.Context, ClientConn Connection) {
@@ -77,6 +78,16 @@ func (h *ClientHandler) HandleClient(ctx context.Context, ClientConn Connection)
 	h.region = "--"
 	h.cached = "--"
 	h.clientConn = ClientConn
+
+	if h.ConnLimiter != nil {
+		if !h.ConnLimiter.Acquire(ip) {
+			h.accepted = false
+			h.DeniedReason = "too many concurrent connections from source IP"
+			h.processConnection(ctx)
+			return
+		}
+		defer h.ConnLimiter.Release(ip)
+	}
 
 	if len(h.AlwaysDenied) > 0 {
 		if h.CheckIps.CheckSubnets(h.AlwaysDenied, ip) {

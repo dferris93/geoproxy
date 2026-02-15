@@ -120,6 +120,27 @@ func TestReadConfigValidatesAlwaysLists(t *testing.T) {
 	}
 }
 
+func TestReadConfigNormalizesAlwaysLists(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := []byte(`servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8080"
+    backendIP: "10.0.0.1"
+    backendPort: "9090"
+    allowedCountries: ["US"]
+    alwaysAllowed: [" 10.0.0.1 ", "10.0.0.0/24 "]
+`)
+	err := os.WriteFile(path, content, 0o600)
+	assert.NoError(t, err)
+
+	cfg, err := ReadConfig(path)
+	assert.NoError(t, err)
+	if assert.Len(t, cfg.Servers, 1) {
+		assert.Equal(t, []string{"10.0.0.1", "10.0.0.0/24"}, cfg.Servers[0].AlwaysAllowed)
+	}
+}
+
 func TestValidateTrustedProxies(t *testing.T) {
 	tests := []struct {
 		name    string

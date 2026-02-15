@@ -37,10 +37,12 @@ func TestRealHTTPClientGetWithoutAPIKey(t *testing.T) {
 func TestRealHTTPClientGetWithAPIKey(t *testing.T) {
 	var gotPath string
 	var gotQuery string
+	var gotAPIKey string
 	oldTransport := http.DefaultTransport
 	http.DefaultTransport = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 		gotPath = r.URL.Path
 		gotQuery = r.URL.RawQuery
+		gotAPIKey = r.Header.Get("X-API-Key")
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(strings.NewReader("ok")),
@@ -63,11 +65,14 @@ func TestRealHTTPClientGetWithAPIKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseQuery: %v", err)
 	}
-	if q.Get("key") != "testkey" {
-		t.Fatalf("unexpected key: %s", q.Get("key"))
+	if q.Get("key") != "" {
+		t.Fatalf("expected key query param to be empty, got: %s", q.Get("key"))
 	}
 	if q.Get("fields") != "countryCode,region,status" {
 		t.Fatalf("unexpected fields: %s", q.Get("fields"))
+	}
+	if gotAPIKey != "testkey" {
+		t.Fatalf("unexpected X-API-Key header: %s", gotAPIKey)
 	}
 }
 

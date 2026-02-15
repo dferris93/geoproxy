@@ -48,7 +48,8 @@ func ReadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
-	for i, server := range config.Servers {
+	for i := range config.Servers {
+		server := &config.Servers[i]
 		if err := validateTrustedProxies(server.TrustedProxies); err != nil {
 			return nil, fmt.Errorf("server %d trustedProxies: %w", i, err)
 		}
@@ -58,6 +59,8 @@ func ReadConfig(path string) (*Config, error) {
 		if err := validateIPOrCIDREntries(server.AlwaysDenied); err != nil {
 			return nil, fmt.Errorf("server %d alwaysDenied: %w", i, err)
 		}
+		server.AlwaysAllowed = normalizeIPOrCIDREntries(server.AlwaysAllowed)
+		server.AlwaysDenied = normalizeIPOrCIDREntries(server.AlwaysDenied)
 	}
 
 	return &config, nil
@@ -93,4 +96,16 @@ func validateIPOrCIDREntries(entries []string) error {
 		return fmt.Errorf("invalid IP/CIDR %q", entry)
 	}
 	return nil
+}
+
+func normalizeIPOrCIDREntries(entries []string) []string {
+	normalized := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		normalized = append(normalized, entry)
+	}
+	return normalized
 }

@@ -39,6 +39,7 @@ type HandlerFactory struct {
 	EndDate              time.Time
 	DaysOfWeek           map[time.Weekday]bool
 	IdleTimeout          time.Duration
+	ConnLimiter          handler.ConnLimiter
 }
 
 func (h *HandlerFactory) NewClientHandler() handler.Handler {
@@ -64,6 +65,7 @@ func (h *HandlerFactory) NewClientHandler() handler.Handler {
 		EndDate:              h.EndDate,
 		DaysOfWeek:           h.DaysOfWeek,
 		IdleTimeout:          h.IdleTimeout,
+		ConnLimiter:          h.ConnLimiter,
 	}
 }
 

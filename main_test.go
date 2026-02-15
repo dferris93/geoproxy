@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"geoproxy/handler"
 	"geoproxy/ipapi"
 	"geoproxy/server"
 )
@@ -389,5 +390,39 @@ func TestRunDefaultTimeouts(t *testing.T) {
 	}
 	if factory.MaxConnLifetime != 2*time.Hour {
 		t.Fatalf("expected max conn lifetime 2h, got %s", factory.MaxConnLifetime)
+	}
+	limiter, ok := factory.ConnLimiter.(*handler.PerIPConnLimiter)
+	if !ok {
+		t.Fatalf("expected ConnLimiter to be *handler.PerIPConnLimiter, got %T", factory.ConnLimiter)
+	}
+	for i := 0; i < 10; i++ {
+		if !limiter.Acquire("1.2.3.4") {
+			t.Fatalf("expected acquire %d to succeed", i+1)
+		}
+	}
+	if limiter.Acquire("1.2.3.4") {
+		t.Fatal("expected 11th acquire to fail")
+	}
+	for i := 0; i < 10; i++ {
+		limiter.Release("1.2.3.4")
+	}
+}
+
+func TestRunRejectsIPAPIWithoutScheme(t *testing.T) {
+	path := writeConfig(t, `servers:
+  - listenIP: "127.0.0.1"
+    listenPort: "8011"
+    backendIP: "127.0.0.1"
+    backendPort: "9011"
+    allowedCountries: ["US"]
+`)
+
+	err := run([]string{"-config", path, "-ipapi", "//127.0.0.1/json/"}, runDeps{
+		logger:      log.New(io.Discard, "", 0),
+		flagOutput:  io.Discard,
+		startServer: (&startCapture{}).start,
+	})
+	if err == nil {
+		t.Fatalf("expected error")
 	}
 }
